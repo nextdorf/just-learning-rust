@@ -1,0 +1,13 @@
+prefix=@INSTALLDIR@
+exec_prefix=@INSTALLDIR@
+libdir=${exec_prefix}/libs
+includedir=${prefix}/include
+
+Name: @PROJECT_NAME@
+Description: @PROJECT_DESCRIPTION@
+Version: @PROJECT_VERSION@
+
+Requires:
+Libs: -L${libdir} -lvideoc
+Cflags: -I${includedir}
+
