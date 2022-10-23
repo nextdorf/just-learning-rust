@@ -15,6 +15,9 @@ fn invoke_cmake(){
 }
 
 fn invoke_buildgen(){
+  // Write the bindings to the $OUT_DIR/bindings.rs file.
+  let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+
   // Tell cargo to look for shared libraries in the specified directory
   // println!("cargo:rustc-link-search=/path/to/lib");
   println!("cargo:rustc-link-search=libvideoc/install/libs");
@@ -24,7 +27,7 @@ fn invoke_buildgen(){
   println!("cargo:rustc-link-lib=videoc");
 
   // Tell cargo to invalidate the built crate whenever the wrapper changes
-  println!("cargo:rerun-if-changed=libvideoc/install/include/videoc.h");
+  println!("cargo:rerun-if-changed=wrapper_videoc.h");
 
   // The bindgen::Builder is the main entry point
   // to bindgen, and lets you build up options for
@@ -32,9 +35,14 @@ fn invoke_buildgen(){
   let bindings = bindgen::Builder::default()
     // The input header we would like to generate
     // bindings for.
-    .header("libvideoc/install/include/videoc.h")
+    .header("wrapper_videoc.h")
+    // .header("libvideoc/install/include/renderframe.h")
     //Only public interface to library
-    .allowlist_file("libvideoc/install/include/videoc.h")
+    .allowlist_function("genSomeData")
+    .allowlist_function("freeData")
+    .allowlist_function("renderfrom")
+    // .allowlist_file(out_path.join("install/include/videoc.h").to_str().unwrap())
+    // .allowlist_file(out_path.join("install/include/renderframe.h").to_str().unwrap())
     // Tell cargo to invalidate the built crate whenever any of the
     // included header files changed.
     .parse_callbacks(Box::new(bindgen::CargoCallbacks))
@@ -43,8 +51,6 @@ fn invoke_buildgen(){
     // Unwrap the Result and panic on failure.
     .expect("Unable to generate bindings");
 
-  // Write the bindings to the $OUT_DIR/bindings.rs file.
-  let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
   bindings
     .write_to_file(out_path.join("bindings.rs"))
     .expect("Couldn't write bindings!");
