@@ -4,18 +4,24 @@ cmake_minimum_required(VERSION 3.9)
 
 find_package(PkgConfig REQUIRED)
 
-project(videoc VERSION 0.1.0 DESCRIPTION "Some stub library")
+project(videoc VERSION 0.1.0 DESCRIPTION "High level abstraction over FFMPEG")
 
-SET(INSTALLDIR "${CMAKE_BINARY_DIR}/install" CACHE STRING "install directory for the headers and library")
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "install directory for the headers and library" FORCE)
+endif()
+
+include(GNUInstallDirs)
+
+
 
 SET(SRC_FILES "src/videoc.c;src/renderframe.c")
 SET(HEADER_FILES "include/videoc.h;include/renderframe.h")
 
-add_library(videoc SHARED ${SRC_FILES})
+# add_library(videoc SHARED ${SRC_FILES})
+add_library(videoc STATIC ${SRC_FILES})
 
 set_target_properties(videoc PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(videoc PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
-# set_target_properties(videoc PROPERTIES PUBLIC_HEADER include/renderframe.h)
 
 configure_file(videoc.pc.in videoc.pc @ONLY)
 
@@ -37,9 +43,9 @@ target_include_directories(videoc PRIVATE include)
 target_include_directories(videoc PRIVATE src)
 
 install(TARGETS videoc
-LIBRARY DESTINATION ${INSTALLDIR}/libs
-PUBLIC_HEADER DESTINATION ${INSTALLDIR}/include)
+LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(FILES ${CMAKE_BINARY_DIR}/videoc.pc
-DESTINATION ${INSTALLDIR}/pkgconfig)
+install(FILES ${CMAKE_BINARY_DIR}/videoc.pc DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
 

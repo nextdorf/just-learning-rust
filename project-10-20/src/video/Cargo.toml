@@ -8,5 +8,8 @@ edition = "2021"
 [build-dependencies]
 bindgen = "*"
 cmake = "*"
+pkg-config = "*"
 
 [dependencies]
+
+
