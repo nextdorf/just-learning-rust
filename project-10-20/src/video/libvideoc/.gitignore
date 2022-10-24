@@ -52,6 +52,6 @@ Mkfile.old
 dkms.conf
 
 # CUSTOM
-build
-install
-local
+/*-build
+/build
+/local

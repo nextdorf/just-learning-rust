@@ -1,7 +1,13 @@
 #include "renderframe.h"
+#include "priv_renderframe.h"
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+#include <libavutil/pixfmt.h>
+
 
 int renderfrom(const char *path, 
-  char* data[8], int* width, int* height, int linesize[8], 
+  uint8_t* data[8], int* width, int* height, int linesize[8], 
   const int skip_frames) {
   AVFormatContext *fctx = NULL;
   AVCodecContext *cctx = NULL;
@@ -39,23 +45,13 @@ int renderfrom(const char *path,
     if((err = avcodec_send_packet(cctx, pkt)) < 0)
       break;
 
+    av_frame_unref(frm);
     err = avcodec_receive_frame(cctx, frm);
     if(err >= 0){
       if(skipFrames > 0)
         --skipFrames;
       else{
-        *width = frm->width;
-        *height = frm->height;
-        for(int i=0; i<8; ++i) {
-          linesize[i] = frm->linesize[i];
-          if (linesize[i]){
-            const size_t n = linesize[i] * *height;
-            data[i] = malloc(n);
-            memcpy(data[i], frm->data[i], n);
-          }
-          else
-            data[i] = NULL;
-        }
+        renderframeAsRGBA(data, width, height, linesize, frm);
         break;
       }
       //ret = frm->data;
@@ -65,6 +61,7 @@ int renderfrom(const char *path,
     else
       break;
   }
+  av_frame_unref(frm);
 
   if(skipFrames > 0)
     err = -1;
@@ -76,19 +73,48 @@ int renderfrom(const char *path,
   return err;
 }
 
-/*
-void dumpData(AVFrame *frm, const char *path){
-  FILE* f = fopen( path, "wb");
-  int32_t header[] = {frm->width, frm->height, frm->linesize[0], frm->linesize[1], frm->linesize[2]};
+void renderframeWithPixfmt(uint8_t* data[8], int* width, int* height, int linesize[8], AVFrame *frm, int avPixelFormat){
+  // *width = frm->width;
+  // *height = frm->height;
+  // for(int i=0; i<8; ++i) {
+  //   linesize[i] = frm->linesize[i];
+  //   frm->fo
+  //   if (linesize[i]){
+  //     const size_t n = linesize[i] * *height;
+  //     data[i] = malloc(n);
+  //     memcpy(data[i], frm->data[i], n);
+  //   }
+  //   else
+  //     data[i] = NULL;
+  // }
 
-  //fwrite(header, sizeof(*header), sizeof(header)/sizeof(*header), f);
-  for(int i = 0; i<3; ++i){
-    const size_t towrite = frm->height*frm->linesize[i];
-    size_t written = fwrite(frm->data[i], 1, towrite, f);
-    printf("%i: wrote %i / %i bytes\n", i, written, towrite);
+  *width = frm->width;
+  *height = frm->height;
+
+  struct AVFrame * tmpFrm = av_frame_alloc();
+
+  struct SwsContext *swsCtx = sws_getContext(*width, *height, frm->format, *width, *height, avPixelFormat, SWS_BILINEAR, NULL, NULL, NULL);
+  //see sws_frame_start(); sws_send_slice(0, src->height); sws_receive_slice(0, dst->height); sws_frame_end()
+  //might be parrallizable
+  sws_scale_frame(swsCtx, tmpFrm, frm);
+
+  memcpy(linesize, tmpFrm->linesize, sizeof(tmpFrm->linesize));
+  for(int i=0; i<sizeof(tmpFrm->data)/sizeof(*(tmpFrm->data)); ++i){
+    if(tmpFrm->data[i]){
+      const size_t size = *height * linesize[i];
+      data[i] = malloc(size);
+      memcpy(data[i], tmpFrm->data[i], size);
+    }
   }
-  fclose(f);
+
+  av_frame_free(&tmpFrm);
+  sws_freeContext(swsCtx);
 }
-*/
+
+void renderframeAsRGBA(uint8_t* data[8], int* width, int* height, int linesize[8], AVFrame *frm)
+  { renderframeWithPixfmt(data, width, height, linesize, frm, AV_PIX_FMT_RGBA); }
+
+void renderframeAsRGB(uint8_t* data[8], int* width, int* height, int linesize[8], AVFrame *frm)
+  { renderframeWithPixfmt(data, width, height, linesize, frm, AV_PIX_FMT_RGB24); }
 
 

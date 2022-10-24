@@ -21,7 +21,7 @@ impl Frame<'_>{
       let height_ref = &mut height;
       let err = ffi::renderfrom(
         path.as_ptr() as *const ::std::os::raw::c_char,
-        data_ptrs.as_mut_ptr() as *mut *mut i8,
+        data_ptrs.as_mut_ptr(),
         width_ref as *mut i32,
         height_ref as *mut i32,
         linesize.as_mut_ptr(),

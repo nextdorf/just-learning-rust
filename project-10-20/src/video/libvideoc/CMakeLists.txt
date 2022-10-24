@@ -13,7 +13,7 @@ endif()
 include(GNUInstallDirs)
 
 
-
+# Library #############################
 SET(SRC_FILES "src/videoc.c;src/renderframe.c")
 SET(HEADER_FILES "include/videoc.h;include/renderframe.h")
 
@@ -48,4 +48,10 @@ ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(FILES ${CMAKE_BINARY_DIR}/videoc.pc DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
+
+# Debug ###############################
+
+add_executable(debug EXCLUDE_FROM_ALL "src/debug_main.c")
+target_include_directories(debug PRIVATE include)
+target_link_libraries(debug videoc)
 

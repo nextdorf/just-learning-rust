@@ -1,6 +1,6 @@
 use std::{slice, fs::File, io::Write};
 
-fn test1(){
+fn _test1(){
   let data;
   unsafe{
     let len = 1024;//*1024*4;
