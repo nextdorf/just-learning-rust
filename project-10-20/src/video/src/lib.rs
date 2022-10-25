@@ -11,6 +11,7 @@ pub struct Frame<'a>{
 
 impl Frame<'_>{
   pub fn from(path: &str, skip_frames: i32) -> Option<Frame> {
+    dbg!(skip_frames);
     let mut width: i32 = 0;
     let mut height: i32 = 0;
     let mut linesize: [i32; 8] = [0; 8];
@@ -39,6 +40,8 @@ impl Frame<'_>{
       data = data_ptrs.try_into().unwrap();
       // data = data_ptrs.map(|ptr| slice::from_raw_parts_mut(ptr,));
     }
+
+    dbg!(format!("{:?}", {let q: [_; 16] = data[0][..16].try_into().unwrap(); q}));
     Some(Frame {width, height, linesize, data})
   }
 
@@ -53,6 +56,7 @@ impl Frame<'_>{
 
 impl Drop for Frame<'_>{
   fn drop(&mut self) {
+    println!("Drops Frame");
     for x in self.data.iter_mut() {
       if x.len() == 0 {continue;}
       unsafe{

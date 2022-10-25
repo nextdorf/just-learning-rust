@@ -37,6 +37,14 @@ int main(int argc, char** argv){
   printf(" ]\n");
 
 
+  FILE *f = fopen("raw.rgb", "wb");
+  for(int i=0; i<sizeof(data)/sizeof(*data); i++){
+    size_t size = linesize[i]*height;
+    if(size)
+      fwrite(data[i], 1, size, f);
+  }
+  fclose(f);
+
   for(int i=0; i<sizeof(data)/sizeof(*data); i++){
     uint8_t *d = data[i];
     if(d)
@@ -45,4 +53,5 @@ int main(int argc, char** argv){
 
   return res;
 }
+
 

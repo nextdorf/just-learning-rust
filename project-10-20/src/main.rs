@@ -33,10 +33,10 @@ impl Default for MyApp {
       img_texture: None,
       img_scale: 0.5,
 
-      video_path: "".to_owned(),
+      video_path: "local/test_video".to_owned(),
       video_texture: None,
       video_scale: 0.2,
-      video_skip_frames: 0
+      video_skip_frames: 60*24
     }
   }
 }
@@ -90,7 +90,7 @@ impl MyApp {
       if let Ok(img) = load_frame_from_path(self.video_path.as_str(), self.video_skip_frames) {
         let tex = ui.ctx().load_texture(
           self.video_path.clone(),
-          img,
+          img, //TODO
           egui::TextureFilter::Linear);
         let _tex = self.video_texture.insert(tex);
       }
@@ -100,26 +100,45 @@ impl MyApp {
 }
 
 fn load_frame_from_path(path: &str, skip_frames: i32) -> Result<egui::ColorImage, image::ImageError>{
+  let gen_error = |s: &str | -> Result<_, image::ImageError> {
+    Err(image::ImageError::IoError(std::io::Error::new(std::io::ErrorKind::Other, s)))
+  };
   let frm;
   match video::Frame::from(path, skip_frames) {
     Some(_frm) => frm = _frm,
-    None => return Err(image::ImageError::IoError(std::io::Error::new(
-      std::io::ErrorKind::Other, 
-      format!("Couldn't open frame {} from {}", skip_frames, path)
-    )))
+    None => return gen_error(format!("Couldn't open frame {} from {}", skip_frames, path).as_str())
   }
-  let (y,u,v) = (frm.channel(0), frm.channel(1), frm.channel(2));
-  let size = [frm.width() as _, frm.height() as _];
-  // egui::ColorImage::from
-  let img_buf = image::ImageBuffer::from_fn(size[0] as _, size[1] as _, |a,b| {
-    let i: usize = (a as usize)+size[0]*(b as usize);
-    let (r,g,b) = (y[i],y[i],y[i]);
-    image::Rgba([r,g,b,0 as _])
-  });
-  Ok(egui::ColorImage::from_rgba_unmultiplied(
-    size,
-    img_buf.as_flat_samples().as_slice(),
-  ))
+  // let (y,u,v) = (frm.channel(0), frm.channel(1), frm.channel(2));
+  // let size = [frm.width() as _, frm.height() as _];
+  // // egui::ColorImage::from
+  // let img_buf = image::ImageBuffer::from_fn(size[0] as _, size[1] as _, |a,b| {
+  //   let i: usize = (a as usize)+size[0]*(b as usize);
+  //   let (r,g,b) = (y[i],y[i],y[i]);
+  //   image::Rgba([r,g,b,0 as _])
+  // });
+  // Ok(egui::ColorImage::from_rgba_unmultiplied(
+  //   size,
+  //   img_buf.as_flat_samples().as_slice(),
+  // ))
+  // image::ImageBuffer::from_pixel(1, 1, image::RgbaImage);
+  // match image::RgbaImage::from_raw(frm.width() as _, frm.height() as _, frm.channel(0).to_vec()) {
+  //   Some(img_buf) => Ok(egui::ColorImage::from_rgba_unmultiplied(
+  //       [frm.width() as _, frm.height() as _],
+  //       img_buf.as_flat_samples().as_slice(),
+  //     )),
+  //   None => return gen_error(format!("Couldn't display frame {} from {}", skip_frames, path).as_str())
+  let (width, height) = (frm.width() as u32, frm.height() as u32);
+  let rgb_buf = frm.channel(0);
+  dbg!(format!("{:?}", {let q: [_; 16] = rgb_buf[..16].try_into().unwrap(); q}));
+  let res = egui::ColorImage {
+    size: [width as _, height as _],
+    pixels: rgb_buf.chunks_exact(3)
+      .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], 255))
+      .collect()
+  };
+  println!("here: {:?}", res.size);
+  Ok(res)
+
 }
 
 fn load_image_from_path(path: &std::path::Path) -> Result<egui::ColorImage, image::ImageError> {

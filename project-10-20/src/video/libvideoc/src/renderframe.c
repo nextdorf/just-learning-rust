@@ -51,7 +51,8 @@ int renderfrom(const char *path,
       if(skipFrames > 0)
         --skipFrames;
       else{
-        renderframeAsRGBA(data, width, height, linesize, frm);
+        // renderframeAsRGBA(data, width, height, linesize, frm);
+        renderframeWithPixfmt(data, width, height, linesize, frm, AV_PIX_FMT_RGB24);
         break;
       }
       //ret = frm->data;
@@ -93,6 +94,7 @@ void renderframeWithPixfmt(uint8_t* data[8], int* width, int* height, int linesi
 
   struct AVFrame * tmpFrm = av_frame_alloc();
 
+  AV_PIX_FMT_YUV420P;
   struct SwsContext *swsCtx = sws_getContext(*width, *height, frm->format, *width, *height, avPixelFormat, SWS_BILINEAR, NULL, NULL, NULL);
   //see sws_frame_start(); sws_send_slice(0, src->height); sws_receive_slice(0, dst->height); sws_frame_end()
   //might be parrallizable
@@ -105,6 +107,8 @@ void renderframeWithPixfmt(uint8_t* data[8], int* width, int* height, int linesi
       data[i] = malloc(size);
       memcpy(data[i], tmpFrm->data[i], size);
     }
+    else
+      data[i] = NULL;
   }
 
   av_frame_free(&tmpFrm);

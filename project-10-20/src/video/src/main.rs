@@ -20,14 +20,21 @@ fn _test1(){
 fn extract_frame(video_path: &str, out_path: &str, skip_frames: i32) -> std::io::Result<()>
 {
   let frm = video::Frame::from(video_path, skip_frames).expect("Video couldn't be opened");
-  File::create(out_path)
-    .and_then(|mut f| f.write_all(frm.channel(0)).and(Ok(f)) )
-    .and_then(|mut f| f.write_all(frm.channel(1)).and(Ok(f)) )
-    .and_then(|mut f| f.write_all(frm.channel(2)).and(f.sync_data()) )
+
+  let mut f = match File::create(out_path) {
+    Ok(g) => g,
+    Err(e) => return Err(e)
+  };
+  for i in 0..8 {
+    match f.write_all(frm.channel(i)) {
+      Ok(()) => (),
+      Err(e) => return Err(e)
+    }
+  }
+  f.sync_data()
 }
 
 
-//run with LD_LIBRARY_PATH=$PWD/libvideoc/install/libs cargo run 
 fn main(){
   let args: Vec<String> = std::env::args().collect();
   // dbg!(args);
