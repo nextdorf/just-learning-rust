@@ -77,12 +77,18 @@ impl MyApp {
   
   fn ui_video_fram(&mut self, _ctx: &egui::Context, ui: &mut egui::Ui){
     ui.heading("Renders a frame from a video file");
-    ui.add(egui::Slider::new(&mut self.video_scale, 0.1..=1.0).text("scale"));
 
-    if self.video_texture.is_some(){
-      let tex = self.video_texture.as_ref().unwrap();
-      ui.image(tex, tex.size_vec2()*self.video_scale);
-    }
+    egui::SidePanel::right("video")
+      .resizable(true)
+      .default_width(ui.available_size().x/2.)
+      .show_inside(ui, |uj| {
+        if self.video_texture.is_some(){
+          let tex = self.video_texture.as_ref().unwrap();
+          let uj_size = uj.available_size();
+          let tex_size = tex.size_vec2();
+          uj.image(tex, egui::Vec2 {x: uj_size.x, y: uj_size.x * tex_size.y/tex_size.x});
+        }
+      });
     ui.label("Pfad:");
     ui.text_edit_singleline(&mut self.video_path);
     if ui.button("Open").clicked(){
@@ -108,25 +114,6 @@ fn load_frame_from_path(path: &str, skip_frames: i32) -> Result<egui::ColorImage
     Some(_frm) => frm = _frm,
     None => return gen_error(format!("Couldn't open frame {} from {}", skip_frames, path).as_str())
   }
-  // let (y,u,v) = (frm.channel(0), frm.channel(1), frm.channel(2));
-  // let size = [frm.width() as _, frm.height() as _];
-  // // egui::ColorImage::from
-  // let img_buf = image::ImageBuffer::from_fn(size[0] as _, size[1] as _, |a,b| {
-  //   let i: usize = (a as usize)+size[0]*(b as usize);
-  //   let (r,g,b) = (y[i],y[i],y[i]);
-  //   image::Rgba([r,g,b,0 as _])
-  // });
-  // Ok(egui::ColorImage::from_rgba_unmultiplied(
-  //   size,
-  //   img_buf.as_flat_samples().as_slice(),
-  // ))
-  // image::ImageBuffer::from_pixel(1, 1, image::RgbaImage);
-  // match image::RgbaImage::from_raw(frm.width() as _, frm.height() as _, frm.channel(0).to_vec()) {
-  //   Some(img_buf) => Ok(egui::ColorImage::from_rgba_unmultiplied(
-  //       [frm.width() as _, frm.height() as _],
-  //       img_buf.as_flat_samples().as_slice(),
-  //     )),
-  //   None => return gen_error(format!("Couldn't display frame {} from {}", skip_frames, path).as_str())
   let (width, height) = (frm.width() as u32, frm.height() as u32);
   let rgb_buf = frm.channel(0);
   dbg!(format!("{:?}", {let q: [_; 16] = rgb_buf[..16].try_into().unwrap(); q}));

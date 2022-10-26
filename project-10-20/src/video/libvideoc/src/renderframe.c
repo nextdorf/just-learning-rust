@@ -31,11 +31,19 @@ int renderfrom(const char *path,
   avcodec_parameters_to_context(cctx, stream->codecpar);
   avcodec_open2(cctx, codec, NULL);
 
+  int flagsTmp = fctx->flags | AVSEEK_FLAG_BACKWARD;
+  int64_t tsTmp = (int64_t)(.1 * 60000.)+250000;
+  // int64_t tsTmp = 251000;
+  int errTmp;
+  errTmp = av_seek_frame(fctx, idx, tsTmp, flagsTmp);
+
 
   AVPacket *pkt = av_packet_alloc();
   if(!pkt) return 0;
   AVFrame *frm = av_frame_alloc();
   if(!frm) {av_packet_free(&pkt); return 0;}
+
+  // errTmp = av_seek_frame(fctx, idx, tsTmp, flagsTmp);
 
   uint8_t *ret = NULL;
   int skipFrames = skip_frames;
@@ -75,20 +83,6 @@ int renderfrom(const char *path,
 }
 
 void renderframeWithPixfmt(uint8_t* data[8], int* width, int* height, int linesize[8], AVFrame *frm, int avPixelFormat){
-  // *width = frm->width;
-  // *height = frm->height;
-  // for(int i=0; i<8; ++i) {
-  //   linesize[i] = frm->linesize[i];
-  //   frm->fo
-  //   if (linesize[i]){
-  //     const size_t n = linesize[i] * *height;
-  //     data[i] = malloc(n);
-  //     memcpy(data[i], frm->data[i], n);
-  //   }
-  //   else
-  //     data[i] = NULL;
-  // }
-
   *width = frm->width;
   *height = frm->height;
 

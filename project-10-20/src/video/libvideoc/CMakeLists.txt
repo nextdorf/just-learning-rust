@@ -14,8 +14,8 @@ include(GNUInstallDirs)
 
 
 # Library #############################
-SET(SRC_FILES "src/videoc.c;src/renderframe.c")
-SET(HEADER_FILES "include/videoc.h;include/renderframe.h")
+SET(SRC_FILES "src/videoc.c;src/renderframe.c;src/Types/VideoStream.c")
+SET(HEADER_FILES "include/videoc.h;include/renderframe.h;include/VideoStream.h")
 
 # add_library(videoc SHARED ${SRC_FILES})
 add_library(videoc STATIC ${SRC_FILES})
@@ -54,4 +54,8 @@ install(FILES ${CMAKE_BINARY_DIR}/videoc.pc DESTINATION ${CMAKE_INSTALL_DATAROOT
 add_executable(debug EXCLUDE_FROM_ALL "src/debug_main.c")
 target_include_directories(debug PRIVATE include)
 target_link_libraries(debug videoc)
+
+add_executable(debug_vs EXCLUDE_FROM_ALL "src/debug_videostream.c")
+target_include_directories(debug_vs PRIVATE include)
+target_link_libraries(debug_vs videoc)
 

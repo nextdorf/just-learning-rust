@@ -1,10 +1,14 @@
 #include "renderframe.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 
 int main(int argc, char** argv){
   const int skip_frames_default = 60*24;
+
+  
 
   int width = -1, height = -1, linesize[8] = {-1};
   char *path;
