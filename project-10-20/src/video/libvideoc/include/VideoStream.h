@@ -7,12 +7,12 @@
 #include <libswscale/swscale.h>
 #include <libavutil/pixfmt.h>
 #include <stdbool.h>
+#include "DecodingDecision.h"
 
 
 struct VideoStream
 {
   AVFormatContext *fmt_ctx;
-  // AVCodec *codec;
   AVCodecContext *codec_ctx;
   AVStream *stream;
 
@@ -90,6 +90,9 @@ VideoStreamResult vs_decode_current_frame(AVFormatContext *fmt_ctx, AVCodecConte
 
 /// @brief See vs_decode_frames for nFrames = 1
 VideoStreamResult vs_decode_next_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *stream, AVPacket *pkt, AVFrame *frm, struct SwsContext *sws_ctx_if_scale, AVFrame *swsfrm, int *err);
+
+VideoStreamResult vs_decode(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *stream, AVPacket *pkt, AVFrame *frm, struct SwsContext *sws_ctx, AVFrame *swsfrm, const DecodingDecider *const decider, const DecodingActor *const actor, int *err);
+
 
 
 #endif

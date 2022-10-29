@@ -14,8 +14,20 @@ include(GNUInstallDirs)
 
 
 # Library #############################
-SET(SRC_FILES "src/videoc.c;src/renderframe.c;src/Types/VideoStream.c")
-SET(HEADER_FILES "include/videoc.h;include/renderframe.h;include/VideoStream.h")
+list(APPEND SRC_FILES
+videoc.c
+renderframe.c
+Types/VideoStream.c
+Types/DecodingDecision.c
+)
+list(APPEND HEADER_FILES
+videoc.h
+renderframe.h
+VideoStream.h
+DecodingDecision.h
+)
+list(TRANSFORM SRC_FILES PREPEND "src/")
+list(TRANSFORM HEADER_FILES PREPEND "include/")
 
 # add_library(videoc SHARED ${SRC_FILES})
 add_library(videoc STATIC ${SRC_FILES})
