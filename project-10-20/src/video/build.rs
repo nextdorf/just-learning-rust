@@ -31,6 +31,10 @@ fn invoke_buildgen(){
 
   // Tell cargo to invalidate the built crate whenever the wrapper changes
   println!("cargo:rerun-if-changed=wrapper_videoc.h");
+  println!("cargo:rerun-if-changed=libvideoc/src");
+  println!("cargo:rerun-if-changed=libvideoc/include");
+  println!("cargo:rerun-if-changed=libvideoc/CMakeLists.txt");
+  println!("cargo:rerun-if-changed=libvideoc/videoc.pc.in");
 
   std::env::set_var("PKG_CONFIG_PATH", format!("{}/pkgconfig:$PKG_CONFIG_PATH", cmake_install_datarootdir));
   // eprintln!("{}", std::env::var("PKG_CONFIG_PATH").unwrap());
@@ -48,9 +52,33 @@ fn invoke_buildgen(){
     .header("wrapper_videoc.h")
     // .header("libvideoc/install/include/renderframe.h")
     //Only public interface to library
-    .allowlist_function("genSomeData")
-    .allowlist_function("freeData")
-    .allowlist_function("renderfrom")
+    .allowlist_function("vs_.*")
+    .allowlist_type("VideoStream.*")
+    .rustified_enum("VideoStreamResult")
+    .rustified_enum("DecodingDecision")
+    .rustified_enum("DecodingDecisionIdx")
+    .rustified_enum("DecodingAction")
+    .rustified_enum("DecodingActionIdx")
+
+    .rustified_enum("AVSampleFormat")
+    .rustified_enum("AVFrameSideDataType")
+    .rustified_enum("AVMediaType")
+    .rustified_enum("AVPictureType")
+    .rustified_enum("AVClassCategory")
+    .rustified_enum("AVPixelFormat")
+    .rustified_enum("AVColorPrimaries")
+    .rustified_enum("AVColorTransferCharacteristic")
+    .rustified_enum("AVColorSpace")
+    .rustified_enum("AVColorRange")
+    .rustified_enum("AVChromaLocation")
+    .rustified_enum("AVChannel")
+    .rustified_enum("AVCodecID")
+    .rustified_enum("AVFieldOrder")
+    .rustified_enum("AVAudioServiceType")
+    .rustified_enum("AVPacketSideDataType")
+    .rustified_enum("AVDurationEstimationMethod")
+    
+    // .allowlist_recursively(false)
     // .allowlist_file(out_path.join("install/include/videoc.h").to_str().unwrap())
     // .allowlist_file(out_path.join("install/include/renderframe.h").to_str().unwrap())
     // Tell cargo to invalidate the built crate whenever any of the

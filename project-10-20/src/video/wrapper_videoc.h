@@ -1,3 +1,3 @@
-#include "libvideoc/include/videoc.h"
-#include "libvideoc/include/renderframe.h"
+#include "libvideoc/include/VideoStream.h"
+#include "libvideoc/include/DecodingDecision.h"
 

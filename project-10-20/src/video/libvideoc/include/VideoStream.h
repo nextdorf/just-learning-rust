@@ -10,6 +10,7 @@
 #include "DecodingDecision.h"
 
 
+/** <div rustbindgen private> */
 struct VideoStream
 {
   AVFormatContext *fmt_ctx;
@@ -44,11 +45,11 @@ typedef struct VideoStream VideoStream;
 typedef enum VideoStreamResult VideoStreamResult;
 
 
-VideoStreamResult open_format_context_from_path(char *path, AVFormatContext **fmt_ctx, int *err);
+VideoStreamResult vs_open_format_context_from_path(char *path, AVFormatContext **fmt_ctx, int *err);
 
-VideoStreamResult open_codec_context(AVFormatContext *fmt_ctx, int stream_idx, AVCodecContext **codec_ctx, int *err);
+VideoStreamResult vs_open_codec_context(AVFormatContext *fmt_ctx, int stream_idx, uint32_t nThreads, int resolution, AVCodecContext **codec_ctx, int *err);
 
-VideoStreamResult create_sws_context(AVCodecContext *codec_ctx, struct SwsContext **sws_ctx,
+VideoStreamResult vs_create_sws_context(AVCodecContext *codec_ctx, struct SwsContext **sws_ctx,
   int new_width, int new_height, enum AVPixelFormat new_pix_fmt, int flags, const double *param, int *err);
 
 

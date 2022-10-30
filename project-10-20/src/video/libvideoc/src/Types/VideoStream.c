@@ -3,7 +3,7 @@
 #include <assert.h>
 
 
-VideoStreamResult open_format_context_from_path(char *path, AVFormatContext **fmt_ctx, int *err){
+VideoStreamResult vs_open_format_context_from_path(char *path, AVFormatContext **fmt_ctx, int *err){
   if((*err = avformat_open_input(fmt_ctx, path, NULL, NULL)) < 0)
     return vs_ffmpeg_errorcode;
   if((*err = avformat_find_stream_info(*fmt_ctx, NULL)) < 0)
@@ -11,7 +11,7 @@ VideoStreamResult open_format_context_from_path(char *path, AVFormatContext **fm
   return vs_success;
 }
 
-VideoStreamResult open_codec_context(AVFormatContext *fmt_ctx, int stream_idx, AVCodecContext **codec_ctx, int *err){
+VideoStreamResult vs_open_codec_context(AVFormatContext *fmt_ctx, int stream_idx, uint32_t nThreads, int resolution, AVCodecContext **codec_ctx, int *err){
   /*
   Let Rust call av_find_default_stream_index, av_find_best_stream in any way and specify the behaivour with enums
 
@@ -34,6 +34,16 @@ VideoStreamResult open_codec_context(AVFormatContext *fmt_ctx, int stream_idx, A
     }
 
   *codec_ctx = avcodec_alloc_context3(codec);
+
+
+  if(resolution>=0)
+    (*codec_ctx)->lowres = resolution < codec->max_lowres ? resolution : codec->max_lowres;
+  else
+    (*codec_ctx)->lowres = -resolution > codec->max_lowres ? 0 : codec->max_lowres+1+resolution;
+  (*codec_ctx)->thread_count = nThreads;
+  // (*codec_ctx)->thread_type = FF_THREAD_SLICE;
+
+
   if((*err = avcodec_parameters_to_context(*codec_ctx, stream->codecpar)) < 0)
     return vs_ffmpeg_errorcode;
   if((*err = avcodec_open2(*codec_ctx, codec, NULL)) < 0)
@@ -48,7 +58,7 @@ VideoStreamResult open_codec_context(AVFormatContext *fmt_ctx, int stream_idx, A
   return vs_success;
 }
 
-VideoStreamResult create_sws_context(AVCodecContext *codec_ctx, struct SwsContext **sws_ctx,
+VideoStreamResult vs_create_sws_context(AVCodecContext *codec_ctx, struct SwsContext **sws_ctx,
   int new_width, int new_height, enum AVPixelFormat new_pix_fmt, int flags, const double *param, int *err){
   *sws_ctx = sws_getContext(
     codec_ctx->width, codec_ctx->height, codec_ctx->pix_fmt, 

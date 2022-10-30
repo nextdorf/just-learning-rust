@@ -1,20 +1,20 @@
 use std::{slice, fs::File, io::Write};
 
 fn _test1(){
-  let data;
-  unsafe{
-    let len = 1024;//*1024*4;
-    data = slice::from_raw_parts_mut(video::ffi::genSomeData(len), len);
-  }
+  // let data;
+  // unsafe{
+  //   let len = 1024;//*1024*4;
+  //   data = slice::from_raw_parts_mut(video::ffi::genSomeData(len), len);
+  // }
 
-  for i in 0..data.len(){
-    data[i] = (((i*i) as u16) % 256) as u8
-  }
-  println!("{:?}", data);
+  // for i in 0..data.len(){
+  //   data[i] = (((i*i) as u16) % 256) as u8
+  // }
+  // println!("{:?}", data);
 
-  unsafe{
-    video::ffi::freeData(data.as_mut_ptr());
-  }
+  // unsafe{
+  //   video::ffi::freeData(data.as_mut_ptr());
+  // }
 }
 
 fn extract_frame(video_path: &str, out_path: &str, skip_frames: i32) -> std::io::Result<()>
