@@ -11,5 +11,6 @@ cmake = "*"
 pkg-config = "*"
 
 [dependencies]
+bitflags = "*"
 
 

@@ -10,7 +10,9 @@
 #include "DecodingDecision.h"
 
 
-/** <div rustbindgen private> */
+/** <div rustbindgen private>
+ * <div rustbindgen nocopy>
+*/
 struct VideoStream
 {
   AVFormatContext *fmt_ctx;
@@ -39,6 +41,7 @@ enum VideoStreamResult{
   vs_index_out_of_bounds,
   vs_stream_not_found,
   vs_decoder_not_found,
+  vs_null_reference,
 };
 
 typedef struct VideoStream VideoStream;
@@ -51,6 +54,10 @@ VideoStreamResult vs_open_codec_context(AVFormatContext *fmt_ctx, int stream_idx
 
 VideoStreamResult vs_create_sws_context(AVCodecContext *codec_ctx, struct SwsContext **sws_ctx,
   int new_width, int new_height, enum AVPixelFormat new_pix_fmt, int flags, const double *param, int *err);
+
+VideoStreamResult vs_create_pkt_frm(AVPacket **pkt, AVFrame **frm, AVFrame **swsfrm);
+
+void vs_free(VideoStream *vstream);
 
 
 /// @brief Seek position in stream by combining a fast mode (seek keyframes) in compressed stream
@@ -84,7 +91,7 @@ VideoStreamResult vs_seek_at(AVFormatContext *fmt_ctx, AVStream *stream, double 
 /// @param swsfrm Ignored if sws_ctx_if_scale is NULL. Otherwise result of sws_scale is stored here. Timestamps are copied from frm
 /// @param nFrames Number of successful frames to decode
 /// @return VideoStreamResult
-VideoStreamResult vs_decode_frames(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *stream, AVPacket *pkt, AVFrame *frm, struct SwsContext *sws_ctx_if_scale, AVFrame *swsfrm, uint32_t nFrames, int *err);
+VideoStreamResult vs_decode_frames(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *stream, AVPacket *pkt, AVFrame *frm, struct SwsContext *sws_ctx_if_scale, AVFrame *swsfrm, uint64_t nFrames, int *err);
 
 /// @brief See vs_decode_frames for nFrames = 0
 VideoStreamResult vs_decode_current_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *stream, AVPacket *pkt, AVFrame *frm, struct SwsContext *sws_ctx_if_scale, AVFrame *swsfrm, int *err);

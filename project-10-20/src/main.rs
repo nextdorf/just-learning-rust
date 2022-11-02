@@ -5,6 +5,7 @@
 use std::path;
 
 use eframe::egui;
+use video::ffi::{VideoStream, PartialVideoStream, AVPixelFormat, SWS_Scaling, VideoStreamErr, Seek};
 
 fn main() {
   let options = eframe::NativeOptions::default();
@@ -24,6 +25,7 @@ struct MyApp {
   pub video_texture: Option<egui::TextureHandle>,
   pub video_scale: f32,
   pub video_skip_frames: i32,
+  pub video_medium: Option<VideoStream>
 }
 
 impl Default for MyApp {
@@ -36,7 +38,8 @@ impl Default for MyApp {
       video_path: "local/test_video".to_owned(),
       video_texture: None,
       video_scale: 0.2,
-      video_skip_frames: 60*24
+      video_skip_frames: 60*24,
+      video_medium: None
     }
   }
 }
@@ -109,17 +112,24 @@ fn load_frame_from_path(path: &str, skip_frames: i32) -> Result<egui::ColorImage
   let gen_error = |s: &str | -> Result<_, image::ImageError> {
     Err(image::ImageError::IoError(std::io::Error::new(std::io::ErrorKind::Other, s)))
   };
-  let frm;
-  match video::Frame::from(path, skip_frames) {
-    Some(_frm) => frm = _frm,
-    None => return gen_error(format!("Couldn't open frame {} from {}", skip_frames, path).as_str())
-  }
-  let (width, height) = (frm.width() as u32, frm.height() as u32);
-  let rgb_buf = frm.channel(0);
-  dbg!(format!("{:?}", {let q: [_; 16] = rgb_buf[..16].try_into().unwrap(); q}));
+  let opt_vs: Result<VideoStream, VideoStreamErr> = Ok(PartialVideoStream::new()).and_then(|pvs|
+    Ok(pvs.open_format_context_from_path(std::path::Path::new(path))?
+      .open_codec_context(0, 0, -1)?
+      .create_sws_context(-1, -1, AVPixelFormat::AV_PIX_FMT_RGB24, SWS_Scaling::Bilinear)?
+      .create_pkt_frm()?
+      .with_current_frame())
+    );
+  let mut vs = match opt_vs {
+      Ok(vs) => vs,
+      Err(_) => return gen_error("Could not decode Frame")
+    };
+  vs.seek(120., Seek::empty()).unwrap();
+  vs.decode_frames(0,true).unwrap();
+  let frm_ref = vs.decoded_frm();
+
   let res = egui::ColorImage {
-    size: [width as _, height as _],
-    pixels: rgb_buf.chunks_exact(3)
+    size: [frm_ref.width(), frm_ref.height()],
+    pixels: frm_ref.planes()[0].chunks_exact(3)
       .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], 255))
       .collect()
   };
@@ -138,3 +148,5 @@ fn load_image_from_path(path: &std::path::Path) -> Result<egui::ColorImage, imag
     pixels.as_slice(),
   ))
 }
+
+

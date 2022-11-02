@@ -79,9 +79,10 @@ int my_renderframe(char *path, double seconds, int *width, int *height, int *out
   vstream->fmt_ctx = fctx;
   vstream->codec_ctx = cctx;
   vstream->stream = fctx->streams[idx];
-  vstream->pkt = av_packet_alloc();
-  vstream->frm = av_frame_alloc();
-  vstream->swsfrm = av_frame_alloc();
+  // vstream->pkt = av_packet_alloc();
+  // vstream->frm = av_frame_alloc();
+  // vstream->swsfrm = av_frame_alloc();
+  vs_create_pkt_frm(&(vstream->pkt), &(vstream->frm), &(vstream->swsfrm));
   vstream->sws_ctx = swsctx;
 
 
@@ -92,15 +93,7 @@ int my_renderframe(char *path, double seconds, int *width, int *height, int *out
   memcpy(*rgb, vstream->swsfrm->data[0], datasize);
 
 
-  av_frame_unref(vstream->frm);
-  av_frame_unref(vstream->swsfrm);
-  av_frame_free(&(vstream->frm));
-  av_frame_free(&(vstream->swsfrm));
-  av_packet_unref(vstream->pkt);
-  av_packet_free(&vstream->pkt);
-  sws_freeContext(vstream->sws_ctx);
-  avcodec_close(vstream->codec_ctx);
-  avformat_close_input(&(vstream->fmt_ctx));
+  vs_free(vstream);
   free(vstream);
 
   return err;

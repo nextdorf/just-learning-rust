@@ -60,11 +60,38 @@ VideoStreamResult vs_open_codec_context(AVFormatContext *fmt_ctx, int stream_idx
 
 VideoStreamResult vs_create_sws_context(AVCodecContext *codec_ctx, struct SwsContext **sws_ctx,
   int new_width, int new_height, enum AVPixelFormat new_pix_fmt, int flags, const double *param, int *err){
+  const int width = codec_ctx->width;
+  const int height = codec_ctx->height;
+  const int newwidth = new_width >= 0 ? new_width : width;
+  const int newheight = new_height >= 0 ? new_height : height;
   *sws_ctx = sws_getContext(
-    codec_ctx->width, codec_ctx->height, codec_ctx->pix_fmt, 
-    new_width, new_height, new_pix_fmt,
+    width, height, codec_ctx->pix_fmt, 
+    newwidth, newheight, new_pix_fmt,
     flags, NULL, NULL, param );
   return *sws_ctx ? vs_success : vs_ffmpeg_errorcode;
+}
+
+VideoStreamResult vs_create_pkt_frm(AVPacket **pkt, AVFrame **frm, AVFrame **swsfrm){
+  if(!(pkt && frm && swsfrm))
+    return vs_null_reference;
+  
+  *pkt = av_packet_alloc();
+  *frm = av_frame_alloc();
+  *swsfrm = av_frame_alloc();
+  return vs_success;
+}
+
+
+void vs_free(VideoStream *vstream) {
+  av_frame_unref(vstream->frm);
+  av_frame_unref(vstream->swsfrm);
+  av_frame_free(&(vstream->frm));
+  av_frame_free(&(vstream->swsfrm));
+  av_packet_unref(vstream->pkt);
+  av_packet_free(&vstream->pkt);
+  sws_freeContext(vstream->sws_ctx);
+  avcodec_close(vstream->codec_ctx);
+  avformat_close_input(&(vstream->fmt_ctx));
 }
 
 
@@ -265,7 +292,7 @@ void vs_decode_frames_dact_frm(ActorFuncParams) {
   if(*nFrames)
     --(*nFrames);
 }
-VideoStreamResult vs_decode_frames(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *stream, AVPacket *pkt, AVFrame *frm, struct SwsContext *sws_ctx_if_scale, AVFrame *swsfrm, uint32_t nFrames, int *err){
+VideoStreamResult vs_decode_frames(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx, AVStream *stream, AVPacket *pkt, AVFrame *frm, struct SwsContext *sws_ctx_if_scale, AVFrame *swsfrm, uint64_t nFrames, int *err){
   DecodingDecider decider = new_DecodingDecider();
   decider.decisions[DDecideDecodeFrame] = DDecideFunctional;
   decider.params[DDecideDecodeFrame] = vs_decode_frames_ddecide;
