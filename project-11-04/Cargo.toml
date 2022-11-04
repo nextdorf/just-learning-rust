@@ -11,3 +11,5 @@ edition = "2021"
 env_logger = "*"
 wgpu = "*"
 winit = "*"
+pollster = "*"
+
