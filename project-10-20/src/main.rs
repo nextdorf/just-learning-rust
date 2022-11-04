@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+mod ui;
 // mod video;
 // mod bz2_binding;
 use std::path;
@@ -8,12 +9,23 @@ use eframe::egui;
 use video::ffi::{VideoStream, PartialVideoStream, AVPixelFormat, SWS_Scaling, VideoStreamErr, Seek};
 
 fn main() {
-  let options = eframe::NativeOptions::default();
-  eframe::run_native(
-    "My egui App",
-    options,
-    Box::new(|_cc| Box::new(MyApp::default())),
-  );
+  // let options = eframe::NativeOptions::default();
+  // eframe::run_native(
+  //   "My egui App",
+  //   options,
+  //   Box::new(|_cc| Box::new(MyApp::default())),
+  // );
+
+  // let mut gui = ui::EscherUI::new();
+  // gui.init();
+  // gui.run();
+
+  let instances = wgpu::Instance::new(wgpu::Backends::all());
+  for a in instances.enumerate_adapters(wgpu::Backends::all()) {
+    println!(" - {:?}\n", a.get_info());
+  }
+
+  // wgpu::
 }
 
 struct MyApp {

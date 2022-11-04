@@ -11,6 +11,7 @@ eframe = "*"
 image = "*"
 #libc = "*"
 video = { path = "src/video", version = "*" }
+wgpu = "*"
 
 [build-dependencies]
 bindgen = "*"

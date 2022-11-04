@@ -6,7 +6,7 @@ use std::{path, os::unix::prelude::OsStrExt, slice, };
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-mod video_stream;
+pub mod video_stream;
 
 // #[macro_use]
 use bitflags::bitflags;
