@@ -12,4 +12,5 @@ env_logger = "*"
 wgpu = "*"
 winit = "*"
 pollster = "*"
+bytemuck = {version = "*", features = [ "derive" ]}
 
