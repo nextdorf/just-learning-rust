@@ -14,8 +14,9 @@ async fn run() {
   let all_adapters = wgpu::Instance::new(wgpu::Backends::all())
     .enumerate_adapters(wgpu::Backends::all());
   for a in all_adapters {
-    println!("- {:?}", a.get_info())
+    eprintln!("- {:?}", a.get_info())
   }
+  eprintln!("-----");
 
   let mut state = WinState::new(&window).await;
 

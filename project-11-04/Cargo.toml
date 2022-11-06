@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 # egui = "*"
-# image = "*"
+image = { version = "*", features = [ "jpeg", "png" ]}
 env_logger = "*"
 wgpu = "*"
 winit = "*"

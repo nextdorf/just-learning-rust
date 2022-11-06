@@ -1,6 +1,6 @@
-use std::future::Future;
+pub mod texture;
 
-use wgpu::{Features, util::DeviceExt};
+use wgpu::util::DeviceExt;
 use winit::{window::Window, event::WindowEvent, dpi::PhysicalSize};
 
 pub struct WinState {
@@ -15,24 +15,37 @@ pub struct WinState {
   // pub num_vertices: u32,
   pub index_buffer: wgpu::Buffer,
   pub num_indices: u32,
+  pub diffuse_bind_group: wgpu::BindGroup,
+  pub texture: texture::Texture,
 }
+
+const SRGB2RGB_A: f64 = 0.055;
+const SRGB2RGB_GAMMA: f64 = 2.4;
+pub fn rgb_to_srgb(rgb: u8) -> f64 { (((rgb as f64)/255. + SRGB2RGB_A)/(1.+SRGB2RGB_A)).powf(SRGB2RGB_GAMMA) }
+pub fn rgb_to_srgb_f32(rgb: u8) -> f32 { rgb_to_srgb(rgb) as _ }
+pub fn srgb_to_rgb(srgb: f64) -> u8 { ((srgb.powf(1./SRGB2RGB_GAMMA)*(1.+SRGB2RGB_A) - SRGB2RGB_A)*255.).round() as _ }
+pub fn srgb_to_rgb_f32(srgb: f32) -> u8 { srgb_to_rgb(srgb as _) }
+// pub fn srgb_to_rgb(srgb: f64) -> u8 { (((srgb + SRGB2RGB_A)/(1.+SRGB2RGB_A)).powf(SRGB2RGB_GAMMA) * 255.).round() as _ }
+// pub fn rgb_to_srgb(rgb: u8) -> f64 { ((rgb as f64) /255.).powf(1./SRGB2RGB_GAMMA)*(1.+SRGB2RGB_A) - SRGB2RGB_A }
+
+
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
-  col: [f32; 3],
   pos: [f32; 3],
+  uv: [f32; 2],
 }
 const TRIVERTS: &[Vertex] = &[
-  Vertex { col: [1.,0.,0.], pos: [0.,   0.5,  0.] },
-  Vertex { col: [0.,1.,0.], pos: [-0.5, -0.5, 0.] },
-  Vertex { col: [0.,0.,1.], pos: [0.5,  0.5,  0.] },
+  Vertex { pos: [0.,    0.5,  0.], uv: [0.5, 0.,] },
+  Vertex { pos: [-0.5,  -0.5, 0.], uv: [0.,  1.] },
+  Vertex { pos: [0.5,   -0.5, 0.], uv: [1.,  1.] },
 ];
 const QUADVERTS: &[Vertex] = &[
-  Vertex { col: [1.,0.,0.], pos: [-0.5, 0.5,  0.] },
-  Vertex { col: [0.,1.,0.], pos: [-0.5, -0.5, 0.] },
-  Vertex { col: [0.,0.,1.], pos: [0.5,  -0.5, 0.] },
-  Vertex { col: [1.,0.,1.], pos: [0.5,  0.5,  0.] },
+  Vertex { pos: [-0.5,  0.5,  0.], uv: [0., 0.] },
+  Vertex { pos: [-0.5,  -0.5, 0.], uv: [0., 1.] },
+  Vertex { pos: [0.5,   -0.5, 0.], uv: [1., 1.] },
+  Vertex { pos: [0.5,   0.5,  0.], uv: [1., 0.] },
 ];
 const QUADINDS: &[u16] = &[
   0, 1, 2,
@@ -76,11 +89,11 @@ impl WinState {
     config
   }
 
-  fn new_render_pipline(device: &wgpu::Device, shader: &wgpu::ShaderModule, config: &wgpu::SurfaceConfiguration) -> wgpu::RenderPipeline {
+  fn new_render_pipline(device: &wgpu::Device, shader: &wgpu::ShaderModule, config: &wgpu::SurfaceConfiguration, bind_group_layout: &wgpu::BindGroupLayout) -> wgpu::RenderPipeline {
     let render_pipeline_layout = device.create_pipeline_layout(
       &wgpu::PipelineLayoutDescriptor {
         label: Some("Render Pipeline Layout"),
-        bind_group_layouts: &[],
+        bind_group_layouts: &[bind_group_layout],
         push_constant_ranges: &[],
     });
 
@@ -133,15 +146,71 @@ impl WinState {
     })
   }
 
+  fn new_bind_group(diffuse_texture: &texture::Texture, device: &wgpu::Device, queue: &wgpu::Queue) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
+    let texture_bind_group_layout = device.create_bind_group_layout(
+      &wgpu::BindGroupLayoutDescriptor {
+        entries: &[
+          wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+              multisampled: false,
+              view_dimension: wgpu::TextureViewDimension::D2,
+              sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            },
+            count: None,
+          },
+          wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            // This should match the filterable field of the
+            // corresponding Texture entry above.
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+          },
+        ],
+        label: Some("texture_bind_group_layout"),
+    });
+    let texture_bind_group = device.create_bind_group(
+      &wgpu::BindGroupDescriptor {
+        label: Some("texture_bind_group"),
+        layout: &texture_bind_group_layout,
+        entries: &[
+          wgpu::BindGroupEntry {
+            binding: 0,
+            resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+          },
+          wgpu::BindGroupEntry {
+            binding: 1,
+            resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+          },
+        ]
+    });
+
+    (texture_bind_group, texture_bind_group_layout)
+  }
+
   pub async fn new(window: &Window) -> Self {
     let size = window.inner_size();
 
     let (surface, adapter, device, queue) = 
       WinState::new_surface_device_queue(window).await
       .expect("Could not set up the surface to device queue");
-    
-    let config = WinState::new_config(&size, &surface, &adapter, &device);
 
+    let diffuse_bytes = include_bytes!("../logo.png");
+    let diffuse_texture =
+      texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "diffuse_texture")
+      .expect("Couldnt load texture");
+
+    let (diffuse_bind_group, diffuse_bind_group_layout) = 
+      WinState::new_bind_group(&diffuse_texture, &device, &queue);
+
+    let config = WinState::new_config(&size, &surface, &adapter, &device);
+    eprintln!("--> {:?}", adapter.get_info());
+    for fmt in surface.get_supported_formats(&adapter) {
+      eprintln!("{:?}", fmt);
+    }
+    eprintln!("-----");
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
       label: Some("Shader"),
@@ -149,7 +218,7 @@ impl WinState {
     });
 
 
-    let render_pipeline = WinState::new_render_pipline(&device, &shader, &config);
+    let render_pipeline = WinState::new_render_pipline(&device, &shader, &config, &diffuse_bind_group_layout);
 
     let vertex_buffer = device.create_buffer_init(
       &wgpu::util::BufferInitDescriptor {
@@ -176,6 +245,8 @@ impl WinState {
       // num_vertices: TRIVERTS.len() as _,
       index_buffer,
       num_indices: QUADINDS.len() as _,
+      diffuse_bind_group,
+      texture: diffuse_texture,
     }
   }
   
@@ -211,9 +282,9 @@ impl WinState {
         resolve_target: None,
         ops: wgpu::Operations {
           load: wgpu::LoadOp::Clear(wgpu::Color {
-            r: 0.004,
-            g: 0.004,
-            b: 0.008,
+            r: rgb_to_srgb(16), //16./255.,
+            g: rgb_to_srgb(16), //16./255.,
+            b: rgb_to_srgb(32), //32./255.,
             a: 1.0,
           }),
           store: true,
@@ -222,6 +293,7 @@ impl WinState {
       depth_stencil_attachment: None,
     });
     render_pass.set_pipeline(&self.render_pipeline);
+    render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
     render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
     render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
     render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
@@ -247,7 +319,7 @@ impl Vertex {
           shader_location: 0,
         },
         wgpu::VertexAttribute {
-          format: wgpu::VertexFormat::Float32x3,
+          format: wgpu::VertexFormat::Float32x2,
           offset: std::mem::size_of::<[f32; 3]>() as _,
           shader_location: 1,
         },
