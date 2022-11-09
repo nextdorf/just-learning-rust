@@ -1,4 +1,7 @@
-// Vertex shader
+struct CameraUniform {
+  proj_view: mat4x4<f32>,
+};
+
 
 struct VertexInput {
   @location(0) pos: vec3<f32>,
@@ -10,10 +13,16 @@ struct VertexOutput {
   @location(0) uv: vec2<f32>,
 };
 
+
+// Vertex shader
+
+@group(1) @binding(0)
+var<uniform> camera: CameraUniform; 
+
 @vertex
 fn vs_main(model: VertexInput) -> VertexOutput {
   var out: VertexOutput;
-  out.pos = vec4<f32>(model.pos, 1.0);
+  out.pos = camera.proj_view * vec4<f32>(model.pos, 1.0);
   out.uv = model.uv;
   return out;
 }
