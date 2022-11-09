@@ -1,0 +1,17 @@
+[package]
+name = "project-11-09"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eframe = { version = "*", features = ["wgpu"]}
+bytemuck = "*"
+# egui-wgpu = "*"
+# egui = "*"
+# winit = "*"
+# wgpu = "*"
+# pollster = "*"
+# env_logger = "*"
+

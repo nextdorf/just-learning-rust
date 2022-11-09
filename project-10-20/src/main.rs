@@ -16,9 +16,9 @@ fn main() {
   //   Box::new(|_cc| Box::new(MyApp::default())),
   // );
 
-  // let mut gui = ui::EscherUI::new();
-  // gui.init();
-  // gui.run();
+  let mut gui = ui::EscherUI::new();
+  gui.init();
+  gui.run();
 
   let instances = wgpu::Instance::new(wgpu::Backends::all());
   for a in instances.enumerate_adapters(wgpu::Backends::all()) {
