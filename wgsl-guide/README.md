@@ -129,15 +129,165 @@ Nachdem der Adapter ausgewählt ist, fehlt nur noch
 ```rust
 let (device, queue) = adapter.request_device(
   &wgpu::DeviceDescriptor {
-    label: Some("Device Descriptor"),
+    label: Some("Device"),
     features: wgpu::Features::default(),
     limits: wgpu::Limits::default(),
   },
   None,
 ).await.unwrap();
 ```
-`device` definiert die GPU zusammen mit der gewählten API und Features. `queue` representiert den Beginn der Shader Pipeline. Damit haben wir alles fertig um einen Shader zu schreiben.
+`device` definiert die GPU zusammen mit der gewählten API und Features. `queue` representiert den Beginn der Shader Pipeline. Damit haben wir alles fertig um einen Shader zu schreiben. Wir geben die beiden Werte zur `main` zurück und führen damit, wie im nächsten Abschnitt beschrieben, einen Shader aus.
+```rust
+//Changes to main.rs
+async fn run_main(adapter_idx: Option<usize>) -> (Device, Queue) {
+  // Old Code
+
+  let (device, queue) = adapter.request_device(
+    &wgpu::DeviceDescriptor {
+      label: Some("Device"),
+      features: wgpu::Features::default(),
+      limits: wgpu::Limits::default(),
+    },
+    None,
+  ).await.unwrap();
+  
+  (device, queue)
+}
+
+fn main() {
+  let args: Vec<String> = env::args().collect();
+  let idx = args.get(1).and_then(|i_str| i_str.parse::<usize>().ok());
+  let (device, queue) = pollster::block_on(run_main(idx));
+
+  //TODO:run_shader(&device, &queue);
+}
+```
 
 ## Compute Pipeline
 Für die meisten sind Compute Shader vermutlich weniger interessant und nichiger als die allbekannten Render Shader, allerdings sind sie sehr viel einfacher zu verstehen. Von daher erkläre ich sie zuerst.
+
+Um die Pipeline zu erstellen rufe ich `let pipeline = device.create_compute_pipeline(todo!())` auf. Für das Argument müssen wir allerdings zuerst `pipeline_descriptor: ComputePipelineDescriptor` erstellen. Dieses Schema, erst einen Deskriptor für den Typen erstellen, und diesen an eine `create_[..]` Methode in `device` zu übergeben, wird überall in der ShaderCreation-Phase verwendet. Der _ComputePipelineDescriptor_ ist ein Struct mit:
+* `label: Option<&str>`
+eine Bezeichnung zu Debugzwecken
+* `layout: Option<&PipelineLayout>`
+Das Datenlayout für die Pipeline
+* `module: &Shadermodule`
+Der kompilierte Shader
+* `entry_point: &str`
+Der Einstiegspunkt des Programms, sozusagen die main-Funktion des ComputeShaders. Der Name dieser Funktion kann frei gewählt werden, solange sie als Einstiegspunkt m Shader makiert ist.
+
+Als _label_ wählen wir den Namen der Variable, für das Layout wählen wir zunächst _None_, da wir mit einem minimalem Beispiel beginnen wollen, und der `entry_point` sei `"main_comp"`. Die Erstellung des ShaderModules folgt einem ähnlichen Schema und wir definieren:
+```rust
+const shader_code: &str = "\
+  @compute @workgroup_size(2,2)
+  fn main_comp(
+    @builtin(num_workgroups) ngroups: vec3<u32>,
+    @builtin(global_invocation_id) idx: vec3<u32>) {
+    //Do stuff
+  }
+  @compute @workgroup_size(64,16,4)
+  fn not_main_comp() { }
+  ";
+
+let shader_descriptor = ShaderModuleDescriptor {
+  label: Some("shader"),
+  source: ShaderSource::Wgsl(shader_code.into())
+};
+let shader = device.create_shader_module(shader_descriptor);
+```
+Wie bereits erwähnt, generieren wir den Shader direkt vom Quellcode. Hier haben wir den Shader als Multilinestring definiert, alternativ kann man über das `include_str!`-Makro den Quellcode auch als seperate Datei speichern.
+
+Ein Entrypoint ist mit dem Attribut `@compute` makiert und ein Shader kann beliebig viele Einstiegspunkte enthalten. Der Entrypoint, der tatsächlich ausgeführt wird, ist `pipeline_descriptor.entry_point`. Ein weiteres Attribut, das notwendig ist, ist `@workgroup_size`. Es gibt in einem `vec3<u32>` die Anzahl der parallelen Ausführungen pro Workgroup an. 
+
+Die Parameter des Einstiegspunkts ist einerseits durch `pipeline_descriptor.layout` festgelegt, aber optional können auch [Builtin-Inputs](https://gpuweb.github.io/gpuweb/wgsl/#builtin-values) übergeben werden. In diesem Beispiel ist das einmal `num_workgroups: vec3<u32>` mit der Bezeichnung `ngroups` und `global_invocation_id: vec3<u32>` mit der Bezeichnung `idx`. Wir wählen gleich `(256, 256, 1)` für `num_workgroups`. Das heißt am Ende wird der Shader auf einem `512 x 512 x 1` großen Grid ausgeführt, wobei alle `2 x 2 x 1` großen Untergruppen garantiert immer parallel laufen.
+
+Was jetzt noch fehlt ist der Computepass, und das Abschicken in der `queue: Queue`, die wir zuvor erstellt haben:
+```rust
+let mut encoder = device.create_command_encoder(
+  &CommandEncoderDescriptor {
+    label: Some("encoder")
+});
+let mut compute_pass = encoder.begin_compute_pass(
+  &ComputePassDescriptor {
+    label: Some("compute_pass"),
+});
+```
+Der `encoder: CommandEncoder` kodiert die Anweisungen für die GPU und `compute_pass: ComputePass` stellt das ComputeShader-spezifische Interface dar. Um den `compute_pass` zu initialisieren, schreiben wir:
+```rust
+compute_pass.set_pipeline(&pipeline);
+compute_pass.dispatch_workgroups(256, 256, 1);
+```
+Der letzte Schritt ist es den CommandEncoder über die Queue an die GPU zu schicken:
+```rust
+drop(compute_pass);
+queue.submit(std::iter::once(encoder.finish()));
+```
+`drop(compute_pass)` ist wichtig, weil `compute_pass` eine mutierte Referenz auf `encoder` geliehen hat und `queue` eine weitere leihen will. `compute_pass` nach der Initialisierung zu verwerfen ist OK, da die Informationen in `encoder` stehen. Alternativ kann der Code zu Erstellung und Initialisierung von `compute_pass` in einen eigenen scope gepackt werden.
+
+Die gesamte Shader+Pipeline Erstellung sieht folgendermaßen aus:
+```rust
+//compute_example.rs
+use wgpu::{self, Device, Queue, ComputePipelineDescriptor, ShaderModuleDescriptor, ShaderSource, CommandEncoderDescriptor, RenderPassDescriptor, ComputePassDescriptor};
+
+const shader_code: &str = "\
+  @compute @workgroup_size(2,2)
+  fn main_comp(
+    @builtin(num_workgroups) ngroups: vec3<u32>,
+    @builtin(global_invocation_id) idx: vec3<u32>) {
+    //Do stuff
+  }
+  @compute @workgroup_size(64,16,4)
+  fn not_main_comp() { }
+  ";
+
+pub fn run_shader(device: &Device, queue: &Queue) {
+  //Create shader
+  let shader_descriptor = ShaderModuleDescriptor {
+    label: Some("shader"),
+    source: ShaderSource::Wgsl(shader_code.into())
+  };
+  let shader = device.create_shader_module(shader_descriptor);
+
+  //Create Pipeline
+  let pipeline_descriptor = ComputePipelineDescriptor {
+    label: Some("pipeline"),
+    layout: None,
+    module: &shader,
+    entry_point: "main_comp"
+  };
+  let pipeline = device.create_compute_pipeline(&pipeline_descriptor);
+
+  //Create and initialize Computepass
+  let mut encoder = device.create_command_encoder(
+    &CommandEncoderDescriptor {
+      label: Some("encoder")
+  });
+
+  let mut compute_pass = encoder.begin_compute_pass(
+    &ComputePassDescriptor {
+      label: Some("compute_pass"),
+  });
+  compute_pass.set_pipeline(&pipeline);
+  compute_pass.dispatch_workgroups(256,256,1);
+  drop(compute_pass);
+
+  //Run shader
+  queue.submit(std::iter::once(encoder.finish()));
+}
+```
+Bevor wir das Ganze nun aufrufen können fügen wir `run_shader` in `main` hinzu:
+```rust
+pub mod compute_example;
+
+//...
+
+fn main() {
+  // ...
+  compute_example::run_shader(&device, &queue);
+}
+```
+Wenn wir das Projekt nun aufrufen, dann sollte das Programm ohne Fehler kompilieren und durchlaufen, aber noch passiert nichts interessantes auf der Grafikkarte. Das wollen wir jetzt ändern.
+
+ComputeShader geben niemals Werte zurück (im Gegensatz zu RenderShadern), stattdessen müssen wir in `pipeline_descriptor.layout` einen Buffer angeben, in dem wir berechnete Daten zurückgeben.
+
 

@@ -1,7 +1,8 @@
+pub mod compute_example;
 use std::env;
-use wgpu;
+use wgpu::{self, Adapter, Device, Queue};
 
-async fn run_main(adapter_idx: Option<usize>) {
+async fn run_main(adapter_idx: Option<usize>) -> (Device, Queue) {
   let instance = wgpu::Instance::new(
     wgpu::Backends::all() //Use the "best" backend-API available
   );
@@ -11,7 +12,7 @@ async fn run_main(adapter_idx: Option<usize>) {
     .collect::<Vec<_>>();
 
   let adapter_store;
-  let adapter: &wgpu::Adapter = match adapter_idx {
+  let adapter: &Adapter = match adapter_idx {
     Some(idx) if idx < all_adapters.len() =>
       all_adapters.get(idx).unwrap(),
     _ => {
@@ -40,16 +41,20 @@ async fn run_main(adapter_idx: Option<usize>) {
 
   let (device, queue) = adapter.request_device(
     &wgpu::DeviceDescriptor {
-      label: Some("Device Descriptor"),
+      label: Some("Device"),
       features: wgpu::Features::default(),
       limits: wgpu::Limits::default(),
     },
     None,
   ).await.unwrap();
+  
+  (device, queue)
 }
 
 fn main() {
   let args: Vec<String> = env::args().collect();
   let idx = args.get(1).and_then(|i_str| i_str.parse::<usize>().ok());
-  pollster::block_on(run_main(idx))
+  let (device, queue) = pollster::block_on(run_main(idx));
+
+  compute_example::run_shader(&device, &queue);
 }
