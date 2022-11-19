@@ -1,6 +1,6 @@
-use wgpu::{self, Device, Queue, ComputePipelineDescriptor, ShaderModuleDescriptor, ShaderSource, CommandEncoderDescriptor, RenderPassDescriptor, ComputePassDescriptor};
+use wgpu::{self, Device, Queue, ComputePipelineDescriptor, ShaderModuleDescriptor, ShaderSource, CommandEncoderDescriptor, ComputePassDescriptor};
 
-const shader_code: &str = "\
+const SHADER_CODE: &str = "\
   @compute @workgroup_size(2,2)
   fn main_comp(
     @builtin(num_workgroups) ngroups: vec3<u32>,
@@ -13,7 +13,7 @@ pub fn run_shader(device: &Device, queue: &Queue) {
   //Create shader
   let shader_descriptor = ShaderModuleDescriptor {
     label: Some("shader"),
-    source: ShaderSource::Wgsl(shader_code.into())
+    source: ShaderSource::Wgsl(SHADER_CODE.into())
   };
   let shader = device.create_shader_module(shader_descriptor);
 
@@ -42,5 +42,6 @@ pub fn run_shader(device: &Device, queue: &Queue) {
 
   //Run shader
   queue.submit(std::iter::once(encoder.finish()));
+  device.poll(wgpu::Maintain::Wait);
 }
 

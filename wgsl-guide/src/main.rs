@@ -1,4 +1,5 @@
 pub mod compute_example;
+pub mod compute_example2;
 use std::env;
 use wgpu::{self, Adapter, Device, Queue};
 
@@ -56,5 +57,5 @@ fn main() {
   let idx = args.get(1).and_then(|i_str| i_str.parse::<usize>().ok());
   let (device, queue) = pollster::block_on(run_main(idx));
 
-  compute_example::run_shader(&device, &queue);
+  compute_example2::run_shader(&device, &queue);
 }
