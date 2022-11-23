@@ -288,6 +288,8 @@ fn main() {
 ```
 Wenn wir das Projekt nun aufrufen, dann sollte das Programm ohne Fehler kompilieren und durchlaufen, aber noch passiert nichts interessantes auf der Grafikkarte. Das wollen wir jetzt ändern.
 
+## Mandelbrot
+
 ComputeShader geben niemals Werte zurück (im Gegensatz zu RenderShadern), stattdessen müssen wir in `pipeline_descriptor.layout` einen Buffer angeben, in dem wir berechnete Daten zurückgeben.
 
 

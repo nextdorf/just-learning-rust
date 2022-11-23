@@ -3,9 +3,6 @@ var<storage, read_write> arr: array<u32>;
 
 
 fn cfn(x: vec2<f32>, size: vec2<f32>, i: vec2<u32>, iLen: vec2<u32>) -> vec2<f32> {
-  // return vec2<f32>(
-  //   f32(i)/f32(iLen - 1u)*width  + x0 - width/2.,
-  //   f32(j)/f32(jLen - 1u)*height + y0 - height/2.);
   return vec2<f32>(i)/vec2<f32>(iLen - 1u)*size + x - size/2.;
 }
 
@@ -16,7 +13,6 @@ fn cFull(i: vec2<u32>, iLen: vec2<u32>) -> vec2<f32> {
 @compute @workgroup_size(1)
 fn main_comp(
   @builtin(num_workgroups) ngroups: vec3<u32>,
-  // @builtin(local_invocation_index) idx1: u32,
   @builtin(global_invocation_id) idx: vec3<u32>)
 {
   let idx1 = idx.x + ngroups.x*(idx.y + ngroups.y*idx.z);
