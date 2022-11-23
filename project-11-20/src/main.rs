@@ -3,7 +3,7 @@ use egui_winit::egui;
 use egui_winit::winit::dpi::PhysicalSize;
 use egui_winit::winit::event_loop::EventLoop;
 use egui_winit::winit::window::Window;
-use egui_winit::winit::{self, event_loop::ControlFlow, event::Event};
+use egui_winit::winit::{self, event_loop::ControlFlow, event::Event, event};
 use wgpustate::WgpuState;
 
 enum MyEvent {
@@ -35,42 +35,49 @@ fn main() {
 
   let (window, mut win_state, egui_ctx) = setup_egui_winit(&event_loop);
 
-  let mut render_state = WgpuState::new(&window).unwrap();
-  // let egui_rpass = RenderPass::new(&device, surface_format, 1);
+  let mut render_state = WgpuState::new(&window, 2.).unwrap();
 
-  // let encoder = device.create_command_encoder(
-  //   &wgpu::CommandEncoderDescriptor { label: Some("encoder") }
-  // );
-
-  let mut test_var = String::from("foo");
+  let mut test_var = 0;
+  // egui_ctx.set_fonts(egui::FontDefinitions::default());
+  egui_ctx.set_pixels_per_point(render_state.get_surface_scale());
 
   event_loop.run(move |event, _window_target, control_flow| {
     *control_flow = ControlFlow::Wait;
     
     match event {
       Event::WindowEvent { window_id, event } if window_id==window.id() => {
-        let _handled_by_egui = win_state.on_event(&egui_ctx, &event);
-        
-        match event {
-          winit::event::WindowEvent::Resized(PhysicalSize { width, height}) =>
-            render_state.resize(Some(width), Some(height), None),
-          winit::event::WindowEvent::CloseRequested | winit::event::WindowEvent::Destroyed => 
-            *control_flow = ControlFlow::Exit,
-          // winit::event::WindowEvent::KeyboardInput { device_id, input, is_synthetic } => todo!(),
-          // winit::event::WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => todo!(),
-          // winit::event::WindowEvent::ThemeChanged(_) => todo!(),
-          _ => {}
+        // if let event::WindowEvent::MouseInput { state, button, .. } = event {
+        //   eprintln!("Clicked: {:?} - {:?}", state, button)
+        // }
+        if !win_state.on_event(&egui_ctx, &event) {
+          match event {
+            event::WindowEvent::Resized(PhysicalSize { width, height}) =>
+              render_state.resize(Some(width), Some(height), None),
+            event::WindowEvent::CloseRequested | event::WindowEvent::Destroyed => 
+              *control_flow = ControlFlow::Exit,
+            event::WindowEvent::KeyboardInput { input, .. } => match input {
+              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Escape), state: event::ElementState::Pressed,.. } =>
+              *control_flow = ControlFlow::Exit,
+              _ => {}
+              },
+            event::WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => 
+              render_state.resize(Some(new_inner_size.width), Some(new_inner_size.height), Some(scale_factor as _)),
+            // winit::event::WindowEvent::ThemeChanged(_) => todo!(),
+            _ => {}
+          }
         }
       },
       Event::RedrawRequested(window_id) if window_id==window.id() => {
+      // Event::RedrawRequested(..) | Event::UserEvent(MyEvent::RequestRedraw) => {
         let _did_render = render_state.redraw(|| {
           let raw_input = win_state.take_egui_input(&window);
+          raw_input.pixels_per_point;
           let full_output = egui_ctx.run(raw_input, |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
               ui.label("text text text text text text text text text text text text text text text text text text text text ");
               ui.separator();
-              if ui.button(test_var.as_str()).clicked() {
-                test_var = "bar".to_string();
+              if ui.button(test_var.to_string()).clicked() {
+                test_var += 1;
               }
             });
           });
@@ -87,8 +94,11 @@ fn main() {
           (texture_delta, paint_jobs)
         }).and(Some(true)).unwrap_or(false);
       },
+      Event::MainEventsCleared => window.request_redraw(),
       _ => {}
     }
   });
 
 }
+
+

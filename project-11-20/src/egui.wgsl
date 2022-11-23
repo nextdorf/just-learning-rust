@@ -68,15 +68,20 @@ var<uniform> window_size: WindowSize;
 fn main_vs(vert: Vertex) -> VertexOutput {
   var res: VertexOutput;
   // res.pos = vec4((vert.pos - 0.5)*2./128., 0., 1.);
+  let rescaled_size = vert.pos/vec2<f32>(window_size.size)*window_size.scale;
   res.pos = vec4(
-    vert.pos.x/f32(window_size.size.x)*2. - 1.,
-    1. - vert.pos.y/f32(window_size.size.y)*2.,
+    // vert.pos.x/f32(window_size.size.x)*2. - 1.,
+    // 1. - vert.pos.y/f32(window_size.size.y)*2.,
+    rescaled_size.x*2. - 1.,
+    -rescaled_size.y*2. + 1.,
     0.,
-    1./window_size.scale );
+    1.);
   res.color = vert.color;
   res.uv = vert.uv;
+  // res.uv = vec2<i32>(round(vert.pos));
   return res;
 }
+
 
 // Fragment shader
 
@@ -88,5 +93,10 @@ var egui_sampler: sampler;
 @fragment
 fn main_fs(vert: VertexOutput) -> @location(0) vec4<f32> {
   return vert.color*textureSample(egui_texture, egui_sampler, vert.uv);
+  // let mip_level = 0;
+  // //Cant use u32, see https://github.com/gfx-rs/naga/issues/1997 (naga-bug)
+  // // var coord = vec2<i32>(round(vert.uv * vec2<f32>((textureDimensions(egui_texture, mip_level)))));
+  // var coord = vec2<i32>(vert.uv * vec2<f32>((textureDimensions(egui_texture, mip_level)))); 
+  // return vert.color*textureLoad(egui_texture, coord, mip_level);
 }
 

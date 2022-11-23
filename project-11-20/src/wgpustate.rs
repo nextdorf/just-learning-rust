@@ -12,6 +12,7 @@ pub struct WgpuState {
   window_size_bind_group_layout: wgpu::BindGroupLayout,
   surface_update_pipeline: wgpu::RenderPipeline,
   surface_update_binding_layout: wgpu::BindGroupLayout,
+  surface_scale: f32,
 }
 
 #[repr(C)]
@@ -69,7 +70,7 @@ pub fn epaint_vertex_buffer_description<'a>() -> wgpu::VertexBufferLayout<'a> {
 }
 
 impl WgpuState {
-  pub fn new(window: &Window) -> Option<Self> {
+  pub fn new(window: &Window, surface_scale: f32) -> Option<Self> {
     let (device, queue, surface, surface_config) = Self::setup_wgpu(window)?;
     let (surface_update_pipeline, surface_update_binding_layout, window_size_bind_group_layout) =
       Self::create_surface_pipeline(&device, &surface_config);
@@ -85,13 +86,17 @@ impl WgpuState {
       // window_size_bind_group: None,
       surface_update_pipeline,
       surface_update_binding_layout,
+      surface_scale,
     })
   }
 
   fn create_window_size_bind_group(&self) -> wgpu::BindGroup {
-    WindowSize::new(self.surface_config.width, self.surface_config.height, 1.)
+    WindowSize::new(self.surface_config.width, self.surface_config.height, self.surface_scale)
       .get_bind_group(&self.device, &self.window_size_bind_group_layout)
   }
+
+
+  pub fn get_surface_scale(&self) -> f32 { self.surface_scale }
 
   fn setup_wgpu(window: &Window) -> Option<(Device, Queue, Surface, SurfaceConfiguration)> {
     let instance = wgpu::Instance::new(wgpu::Backends::all());
@@ -195,7 +200,7 @@ impl WgpuState {
         primitive: wgpu::PrimitiveState {
           topology: wgpu::PrimitiveTopology::TriangleList,
           strip_index_format: None,
-          front_face: wgpu::FrontFace::Ccw,
+          front_face: wgpu::FrontFace::Cw,
           cull_mode: None,
           unclipped_depth: false,
           polygon_mode: wgpu::PolygonMode::Fill,
@@ -205,7 +210,7 @@ impl WgpuState {
         multisample: wgpu::MultisampleState {
           count: 1,
           mask: !0,
-          alpha_to_coverage_enabled: true, //Was das?
+          alpha_to_coverage_enabled: false, //Was das?
         },
         fragment: Some(wgpu::FragmentState {
           module: &shader,
@@ -233,6 +238,7 @@ impl WgpuState {
   }
 
   fn new_surface_update_binding(&self, texture_id: &TextureId, texture: &wgpu::Texture, tex_filter: wgpu::FilterMode) -> wgpu::BindGroup {
+    // let tex_filter = wgpu::FilterMode::Linear;
     self.device.create_bind_group(
       &wgpu::BindGroupDescriptor {
         label: Some(format!("surface_texture_bind_group {:?}", texture_id).as_str()),
@@ -248,7 +254,7 @@ impl WgpuState {
             resource: wgpu::BindingResource::Sampler(
               &self.device.create_sampler(&wgpu::SamplerDescriptor{
                 mag_filter: tex_filter,
-                // min_filter: tex_filter,
+                min_filter: tex_filter,
                 // mipmap_filter: tex_filter,
                 ..wgpu::SamplerDescriptor::default()
             })),
@@ -263,7 +269,7 @@ impl WgpuState {
     let (texture_delta, paint_jobs) = f();
 
     //Alloc new textures
-    let font_gamma = 1.;
+    let font_gamma = 1.0;
     for (texture_id, img_delta) in texture_delta.set.iter() {
       if img_delta.pos.is_some() {
         eprintln!("Not sure where to place {:?}...", texture_id);
@@ -370,11 +376,11 @@ impl WgpuState {
         tex.destroy();
       }
     }
-    eprintln!("Redraw: {:?} - {:?} - {:?}",
-      texture_delta.set.iter().map(|x| x.0).collect::<Vec<_>>(),
-      self.textures.iter().map(|x| x.0).collect::<Vec<_>>(),
-      texture_delta.free,
-    );
+    // eprintln!("Redraw: {:?} - {:?} - {:?}",
+    //   texture_delta.set.iter().map(|x| x.0).collect::<Vec<_>>(),
+    //   self.textures.iter().map(|x| x.0).collect::<Vec<_>>(),
+    //   texture_delta.free,
+    // );
 
     Some(())
   }
@@ -390,8 +396,8 @@ impl WgpuState {
     if let Some(h) = height {
       self.surface_config.height = h.max(1);
     }
-    if let Some(_s) = scale {
-      todo!();
+    if let Some(s) = scale {
+      self.surface_scale = s.max(0.1);
     }
 
     self.surface.configure(&self.device, &self.surface_config);
