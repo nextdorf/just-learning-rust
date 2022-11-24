@@ -126,11 +126,12 @@ impl WgpuState {
       eprintln!("- {:?}", fmt);
     }
     eprintln!("");
-    let surface_format = all_surface_formats[1];
+    // let surface_format = all_surface_formats[1];
+    let surface_format = all_surface_formats[0];
     let surface_config = SurfaceConfiguration {
       usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
       format: surface_format,
-      width: size.width.max(1), //TODO: Change this if window_resize
+      width: size.width.max(1),
       height: size.height.max(1),
       present_mode: wgpu::PresentMode::Fifo,
       alpha_mode: wgpu::CompositeAlphaMode::Auto,
@@ -268,22 +269,42 @@ impl WgpuState {
     let current_frame = self.surface.get_current_texture().ok()?;
     let (texture_delta, paint_jobs) = f();
 
+
     //Alloc new textures
     let font_gamma = 1.0;
     for (texture_id, img_delta) in texture_delta.set.iter() {
       if img_delta.pos.is_some() {
         eprintln!("Not sure where to place {:?}...", texture_id);
       }
-      let pixel_data = match &img_delta.image {
-        //TODO: Since Color32 has repr(C) it should be possible to directly using as_slice and reinterpretating the array
-        //TODO: See bytemuck
-        egui::ImageData::Color(img) => img.pixels.iter().flat_map(|p| {
-            p.to_array()
-          }).collect::<Vec<u8>>(),
-        egui::ImageData::Font(img) => img.srgba_pixels(font_gamma).flat_map(|p| {
-            p.to_array()
-          }).collect::<Vec<u8>>(),
-      };
+      let pixel_data;
+      let pixel_data_store: Vec<_>;
+      // img.pixels[0].to_srgba_unmultiplied()
+      // if self.surface_config.format.describe().srgb {
+      if false {
+        pixel_data_store = match &img_delta.image {
+          egui::ImageData::Color(img) => img.pixels.iter().flat_map(|p| p.to_srgba_unmultiplied()).collect(),
+          egui::ImageData::Font(img) => img.srgba_pixels(font_gamma).flat_map(|p| p.to_srgba_unmultiplied()).collect()
+        };
+        pixel_data = pixel_data_store.as_slice();
+      } else {
+        pixel_data = match &img_delta.image {
+          egui::ImageData::Color(img) => bytemuck::cast_slice(img.pixels.as_slice()),
+          egui::ImageData::Font(img) => {
+            pixel_data_store = img.srgba_pixels(font_gamma).flat_map(|p| p.to_array()).collect();
+            pixel_data_store.as_slice()
+          },
+        };
+      }
+      // let pixel_data = match &img_delta.image {
+      //   //TODO: Since Color32 has repr(C) it should be possible to directly using as_slice and reinterpretating the array
+      //   //TODO: See bytemuck
+      //   egui::ImageData::Color(img) => img.pixels.iter().flat_map(|p| {
+      //       p.to_array()
+      //     }).collect::<Vec<u8>>(),
+      //   egui::ImageData::Font(img) => img.srgba_pixels(font_gamma).flat_map(|p| {
+      //       p.to_array()
+      //     }).collect::<Vec<u8>>(),
+      // };
       let tex = self.device.create_texture_with_data(
         &self.queue,
         &wgpu::TextureDescriptor {
@@ -296,10 +317,11 @@ impl WgpuState {
           mip_level_count: 1,
           sample_count: 1,
           dimension: wgpu::TextureDimension::D2,
-          format: self.surface_config.format,
+          // format: self.surface_config.format,
+          format: wgpu::TextureFormat::Rgba8UnormSrgb,
           usage: wgpu::TextureUsages::TEXTURE_BINDING //COPY_DST is added automatically
         },
-        pixel_data.as_slice()
+        pixel_data
       );
 
       let tex_filter = match img_delta.filter {
@@ -376,11 +398,6 @@ impl WgpuState {
         tex.destroy();
       }
     }
-    // eprintln!("Redraw: {:?} - {:?} - {:?}",
-    //   texture_delta.set.iter().map(|x| x.0).collect::<Vec<_>>(),
-    //   self.textures.iter().map(|x| x.0).collect::<Vec<_>>(),
-    //   texture_delta.free,
-    // );
 
     Some(())
   }
@@ -453,7 +470,7 @@ impl WindowSize {
           wgpu::BindGroupEntry {
             binding: 0,
             resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-              buffer: &&buffer,
+              buffer: &buffer,
               offset: 0,
               size: Self::bind_size()
             }),
