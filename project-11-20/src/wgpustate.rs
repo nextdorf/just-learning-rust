@@ -210,7 +210,7 @@ impl WgpuState {
         multisample: wgpu::MultisampleState {
           count: 1,
           mask: !0,
-          alpha_to_coverage_enabled: false, //Was das?
+          alpha_to_coverage_enabled: false, //Wichtig damit fonts sauber gerendert werden?
         },
         fragment: Some(wgpu::FragmentState {
           module: &shader,
