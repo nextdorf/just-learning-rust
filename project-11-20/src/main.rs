@@ -1,4 +1,5 @@
 mod wgpustate;
+mod util;
 use egui_winit::egui;
 use egui_winit::winit::dpi::PhysicalSize;
 use egui_winit::winit::event_loop::EventLoop;
@@ -9,6 +10,7 @@ use wgpustate::WgpuState;
 enum MyEvent {
   RequestRedraw,
 }
+
 
 fn setup_egui_winit(event_loop: &EventLoop<MyEvent>) -> (Window, egui_winit::State, egui::Context){
   let window = winit::window::WindowBuilder::new()
@@ -26,6 +28,12 @@ fn setup_egui_winit(event_loop: &EventLoop<MyEvent>) -> (Window, egui_winit::Sta
   let win_state = egui_winit::State::new(event_loop);
   let egui_ctx = egui::Context::default();
 
+  let mut style = (*egui_ctx.style()).clone();
+  style.visuals = util::VisualsColorMap::with_rgba_to_srgba(Some(style.visuals))
+    .map_state()
+    .unwrap();
+  egui_ctx.set_style(style);
+
   (window, win_state, egui_ctx)
 }
 
@@ -35,9 +43,10 @@ fn main() {
 
   let (window, mut win_state, egui_ctx) = setup_egui_winit(&event_loop);
 
-  let mut render_state = WgpuState::new(&window, 2.).unwrap();
+  let mut render_state = WgpuState::new(&window, 1.5).unwrap();
 
   let mut test_var = 0;
+  let mut img_hnd = None;
   // egui_ctx.set_fonts(egui::FontDefinitions::default());
   egui_ctx.set_pixels_per_point(render_state.get_surface_scale());
 
@@ -67,30 +76,29 @@ fn main() {
           }
         }
       },
-      Event::RedrawRequested(window_id) if window_id==window.id() => {
-      // Event::RedrawRequested(..) | Event::UserEvent(MyEvent::RequestRedraw) => {
+      Event::RedrawRequested(window_id) if window_id != window.id() => { },
+      Event::RedrawRequested(..) | Event::UserEvent(MyEvent::RequestRedraw) => {
         let _did_render = render_state.redraw(|| {
           let raw_input = win_state.take_egui_input(&window);
-          raw_input.pixels_per_point;
           let full_output = egui_ctx.run(raw_input, |ctx| {
+            let tex = img_hnd.get_or_insert_with(|| {
+              ctx.load_texture("texture", egui::ColorImage::example(), egui::TextureFilter::Linear)
+            });
+
             egui::CentralPanel::default().show(ctx, |ui| {
               ui.label("text text text text text text text text text text text text text text text text text text text text ");
               ui.separator();
               if ui.button(test_var.to_string()).clicked() {
                 test_var += 1;
               }
+              ui.separator();
+              ui.image(tex.id(), tex.size_vec2());
             });
           });
           win_state.handle_platform_output(&window, &egui_ctx, full_output.platform_output);
           let paint_jobs = egui_ctx.tessellate(full_output.shapes);
-          
-          // let screen_discriptor = egui_wgpu::renderer::ScreenDescriptor {
-          //   size_in_pixels: [surface_config.width, surface_config.height],
-          //   pixels_per_point: window.scale_factor() as _,
-          // };
           let texture_delta = full_output.textures_delta;
           
-          // egui_rpass.update_texture(&device, &queue, id, texture_delta)
           (texture_delta, paint_jobs)
         }).and(Some(true)).unwrap_or(false);
       },
