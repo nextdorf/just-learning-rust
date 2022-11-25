@@ -14,7 +14,7 @@ impl VisualsColorMap {
     }
   }
 
-  pub fn mut_set(mut self, new_visuals: Option<egui::Visuals>, new_color_map: Option<impl Fn(&Color32) -> Color32 + 'static>) -> Self {
+  pub fn set(mut self, new_visuals: Option<egui::Visuals>, new_color_map: Option<impl Fn(&Color32) -> Color32 + 'static>) -> Self {
     if let Some(visuals) = new_visuals {
       self.visuals = visuals;
     }

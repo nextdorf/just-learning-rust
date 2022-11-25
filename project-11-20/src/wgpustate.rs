@@ -278,33 +278,25 @@ impl WgpuState {
       }
       let pixel_data;
       let pixel_data_store: Vec<_>;
-      // img.pixels[0].to_srgba_unmultiplied()
-      // if self.surface_config.format.describe().srgb {
-      if false {
-        pixel_data_store = match &img_delta.image {
-          egui::ImageData::Color(img) => img.pixels.iter().flat_map(|p| p.to_srgba_unmultiplied()).collect(),
-          egui::ImageData::Font(img) => img.srgba_pixels(font_gamma).flat_map(|p| p.to_srgba_unmultiplied()).collect()
+      let rgba8_to_surface_format = if self.surface_config.format.describe().srgb {
+          wgpu::TextureFormat::Rgba8UnormSrgb
+        } else {
+          wgpu::TextureFormat::Rgba8Unorm
         };
-        pixel_data = pixel_data_store.as_slice();
-      } else {
-        pixel_data = match &img_delta.image {
-          egui::ImageData::Color(img) => bytemuck::cast_slice(img.pixels.as_slice()),
-          egui::ImageData::Font(img) => {
-            pixel_data_store = img.srgba_pixels(font_gamma).flat_map(|p| p.to_array()).collect();
-            pixel_data_store.as_slice()
-          },
-        };
-      }
-      // let pixel_data = match &img_delta.image {
-      //   //TODO: Since Color32 has repr(C) it should be possible to directly using as_slice and reinterpretating the array
-      //   //TODO: See bytemuck
-      //   egui::ImageData::Color(img) => img.pixels.iter().flat_map(|p| {
-      //       p.to_array()
-      //     }).collect::<Vec<u8>>(),
-      //   egui::ImageData::Font(img) => img.srgba_pixels(font_gamma).flat_map(|p| {
-      //       p.to_array()
-      //     }).collect::<Vec<u8>>(),
-      // };
+      pixel_data = match &img_delta.image {
+        egui::ImageData::Color(img) => bytemuck::cast_slice(img.pixels.as_slice()),
+        egui::ImageData::Font(img) => {
+          // pixel_data_store = img.srgba_pixels(font_gamma).flat_map(|p| p.to_srgba_unmultiplied()).collect();
+          // pixel_data_store = img.srgba_pixels(font_gamma).flat_map(|p| p.to_array()).collect();
+          pixel_data_store = img.pixels.iter().flat_map(|gamma| {
+            let val = (gamma.powf(font_gamma/2.2)*255.).round() as _;
+            [val, val, val, val]
+          }).collect();
+          pixel_data_store.as_slice()
+        },
+      };
+
+      //Expects unmultiplied RGBA and wgsl will see unmultiplied sRGBA
       let tex = self.device.create_texture_with_data(
         &self.queue,
         &wgpu::TextureDescriptor {
@@ -318,7 +310,7 @@ impl WgpuState {
           sample_count: 1,
           dimension: wgpu::TextureDimension::D2,
           // format: self.surface_config.format,
-          format: wgpu::TextureFormat::Rgba8UnormSrgb,
+          format: rgba8_to_surface_format,
           usage: wgpu::TextureUsages::TEXTURE_BINDING //COPY_DST is added automatically
         },
         pixel_data

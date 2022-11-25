@@ -1,5 +1,6 @@
 mod wgpustate;
 mod util;
+
 use egui_winit::egui;
 use egui_winit::winit::dpi::PhysicalSize;
 use egui_winit::winit::event_loop::EventLoop;
@@ -44,10 +45,33 @@ fn main() {
 
   let (window, mut win_state, egui_ctx) = setup_egui_winit(&event_loop);
 
-  let mut render_state = WgpuState::new(&window, 4.).unwrap();
+  let mut render_state = WgpuState::new(&window, 1.25).unwrap();
 
   let mut test_var = 0;
-  let mut img_hnd = None;
+  let img_hnd = [
+    egui_ctx.load_texture("uv_texture",
+      (|| {
+        let size = [256, 256];
+        let mut rgba = Vec::with_capacity(size[0]*size[1]*4);
+        for j in 0..size[1] {
+          for i in 0..size[0] {
+            let r = ((i as f32) / ((size[0]-1) as f32) * 255.).round() as _;
+            let g = ((j as f32) / ((size[1]-1) as f32) * 255.).round() as _;
+            rgba.push(r);
+            rgba.push(g);
+            rgba.push(0);
+            rgba.push(255);
+          }
+        }
+        
+        egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_slice())
+      })(),
+      egui::TextureFilter::Linear),
+    egui_ctx.load_texture("sample_texture",
+      egui::ColorImage::example(),
+      egui::TextureFilter::Linear),
+  ];
+
   let mut ctrl_modifier = false;
   // egui_ctx.set_fonts(egui::FontDefinitions::default());
   win_state.set_pixels_per_point(render_state.get_surface_scale());
@@ -81,12 +105,12 @@ fn main() {
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::LControl), state,.. } =>
                 ctrl_modifier = state == event::ElementState::Pressed,
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Up), state: event::ElementState::Pressed,.. } if ctrl_modifier => {
-                let scale_factor = win_state.pixels_per_point() * 1.2;
+                let scale_factor = win_state.pixels_per_point() * 1.25;
                 win_state.set_pixels_per_point(scale_factor);
                 render_state.resize(None, None, Some(scale_factor));
               },
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Down), state: event::ElementState::Pressed,.. } if ctrl_modifier => {
-                let scale_factor = win_state.pixels_per_point() / 1.2;
+                let scale_factor = win_state.pixels_per_point() / 1.25;
                 win_state.set_pixels_per_point(scale_factor);
                 render_state.resize(None, None, Some(scale_factor));
               },
@@ -105,10 +129,6 @@ fn main() {
         let _did_render = render_state.redraw(|| {
           let raw_input = win_state.take_egui_input(&window);
           let full_output = egui_ctx.run(raw_input, |ctx| {
-            let tex = img_hnd.get_or_insert_with(|| {
-              ctx.load_texture("texture", egui::ColorImage::example(), egui::TextureFilter::Linear)
-            });
-
             egui::CentralPanel::default().show(ctx, |ui| {
               ui.label("text text text text text text text text text text text text text text text text text text text text ");
               ui.separator();
@@ -116,7 +136,11 @@ fn main() {
                 test_var += 1;
               }
               ui.separator();
-              ui.image(tex.id(), tex.size_vec2());
+              ui.horizontal(|ui| {
+                for tex in img_hnd.iter() {
+                  ui.image(tex.id(), tex.size_vec2());
+                }
+              });
             });
           });
           {
