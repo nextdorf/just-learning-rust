@@ -9,6 +9,7 @@ use wgpustate::WgpuState;
 
 enum MyEvent {
   RequestRedraw,
+  Rescale(f32),
 }
 
 
@@ -47,6 +48,7 @@ fn main() {
 
   let mut test_var = 0;
   let mut img_hnd = None;
+  let mut ctrl_modifier = false;
   // egui_ctx.set_fonts(egui::FontDefinitions::default());
   egui_ctx.set_pixels_per_point(render_state.get_surface_scale());
 
@@ -60,13 +62,28 @@ fn main() {
         // }
         if !win_state.on_event(&egui_ctx, &event) {
           match event {
+            // event::WindowEvent::ModifiersChanged(changed_mod) if changed_mod.contains(event::ModifiersState::CTRL) =>
+            //   ctrl_modifier = !ctrl_modifier,
             event::WindowEvent::Resized(PhysicalSize { width, height}) =>
               render_state.resize(Some(width), Some(height), None),
             event::WindowEvent::CloseRequested | event::WindowEvent::Destroyed => 
               *control_flow = ControlFlow::Exit,
             event::WindowEvent::KeyboardInput { input, .. } => match input {
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Escape), state: event::ElementState::Pressed,.. } =>
-              *control_flow = ControlFlow::Exit,
+                *control_flow = ControlFlow::Exit,
+              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::LControl), state,.. } =>
+                ctrl_modifier = state == event::ElementState::Pressed,
+              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Up), state: event::ElementState::Pressed,.. } if ctrl_modifier =>
+                // render_state.resize(None, None, Some(render_state.get_surface_scale()*1.2)),
+                egui_ctx.set_pixels_per_point(render_state.get_surface_scale()*1.2),
+              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Down), state: event::ElementState::Pressed,.. } if ctrl_modifier =>
+                // egui_ctx.set_pixels_per_point(render_state.get_surface_scale()/1.2),
+                {
+                  //TODO: use mutable
+                  let q = egui_ctx.input();
+                  q.events.push(egui::Event::Zoom(render_state.get_surface_scale()/1.2));
+
+                },
               _ => {}
               },
             event::WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => 
