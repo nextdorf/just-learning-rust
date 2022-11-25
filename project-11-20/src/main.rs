@@ -44,13 +44,13 @@ fn main() {
 
   let (window, mut win_state, egui_ctx) = setup_egui_winit(&event_loop);
 
-  let mut render_state = WgpuState::new(&window, 1.5).unwrap();
+  let mut render_state = WgpuState::new(&window, 4.).unwrap();
 
   let mut test_var = 0;
   let mut img_hnd = None;
   let mut ctrl_modifier = false;
   // egui_ctx.set_fonts(egui::FontDefinitions::default());
-  egui_ctx.set_pixels_per_point(render_state.get_surface_scale());
+  win_state.set_pixels_per_point(render_state.get_surface_scale());
 
   event_loop.run(move |event, _window_target, control_flow| {
     *control_flow = ControlFlow::Wait;
@@ -63,7 +63,7 @@ fn main() {
         {
           let events = &egui_ctx.input().events;
           if events.len() > 0 {
-            eprintln!("{:?}", events);
+            // eprintln!("{:?}", events);
           }
         }
 
@@ -80,14 +80,21 @@ fn main() {
                 *control_flow = ControlFlow::Exit,
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::LControl), state,.. } =>
                 ctrl_modifier = state == event::ElementState::Pressed,
-              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Up), state: event::ElementState::Pressed,.. } if ctrl_modifier =>
-                egui_ctx.input_mut().events.push(egui::Event::Zoom(1.2)),
-              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Down), state: event::ElementState::Pressed,.. } if ctrl_modifier =>
-                egui_ctx.input_mut().events.push(egui::Event::Zoom(1./1.2)),
+              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Up), state: event::ElementState::Pressed,.. } if ctrl_modifier => {
+                let scale_factor = win_state.pixels_per_point() * 1.2;
+                win_state.set_pixels_per_point(scale_factor);
+                render_state.resize(None, None, Some(scale_factor));
+              },
+              event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Down), state: event::ElementState::Pressed,.. } if ctrl_modifier => {
+                let scale_factor = win_state.pixels_per_point() / 1.2;
+                win_state.set_pixels_per_point(scale_factor);
+                render_state.resize(None, None, Some(scale_factor));
+              },
               _ => {}
             },
-            event::WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => 
-              render_state.resize(Some(new_inner_size.width), Some(new_inner_size.height), Some(scale_factor as _)),
+            event::WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => {
+              render_state.resize(Some(new_inner_size.width), Some(new_inner_size.height), Some(scale_factor as _));
+            },
             // winit::event::WindowEvent::ThemeChanged(_) => todo!(),
             _ => {}
           }

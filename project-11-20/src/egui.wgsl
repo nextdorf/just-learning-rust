@@ -76,7 +76,7 @@ fn main_vs(vert: Vertex) -> VertexOutput {
     -rescaled_size.y*2. + 1.,
     0.,
     1.);
-  res.color = vert.color;
+  res.color = vec4<f32>(vert.color.rgb/vert.color.a, vert.color.a);
   res.uv = vert.uv;
   // res.uv = vec2<i32>(round(vert.pos));
   return res;
