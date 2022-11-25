@@ -60,6 +60,13 @@ fn main() {
         // if let event::WindowEvent::MouseInput { state, button, .. } = event {
         //   eprintln!("Clicked: {:?} - {:?}", state, button)
         // }
+        {
+          let events = &egui_ctx.input().events;
+          if events.len() > 0 {
+            eprintln!("{:?}", events);
+          }
+        }
+
         if !win_state.on_event(&egui_ctx, &event) {
           match event {
             // event::WindowEvent::ModifiersChanged(changed_mod) if changed_mod.contains(event::ModifiersState::CTRL) =>
@@ -74,18 +81,11 @@ fn main() {
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::LControl), state,.. } =>
                 ctrl_modifier = state == event::ElementState::Pressed,
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Up), state: event::ElementState::Pressed,.. } if ctrl_modifier =>
-                // render_state.resize(None, None, Some(render_state.get_surface_scale()*1.2)),
-                egui_ctx.set_pixels_per_point(render_state.get_surface_scale()*1.2),
+                egui_ctx.input_mut().events.push(egui::Event::Zoom(1.2)),
               event::KeyboardInput { virtual_keycode: Some(event::VirtualKeyCode::Down), state: event::ElementState::Pressed,.. } if ctrl_modifier =>
-                // egui_ctx.set_pixels_per_point(render_state.get_surface_scale()/1.2),
-                {
-                  //TODO: use mutable
-                  let q = egui_ctx.input();
-                  q.events.push(egui::Event::Zoom(render_state.get_surface_scale()/1.2));
-
-                },
+                egui_ctx.input_mut().events.push(egui::Event::Zoom(1./1.2)),
               _ => {}
-              },
+            },
             event::WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => 
               render_state.resize(Some(new_inner_size.width), Some(new_inner_size.height), Some(scale_factor as _)),
             // winit::event::WindowEvent::ThemeChanged(_) => todo!(),
@@ -112,6 +112,12 @@ fn main() {
               ui.image(tex.id(), tex.size_vec2());
             });
           });
+          {
+            let events = &full_output.platform_output.events;
+            if events.len() > 0 {
+              eprintln!("{:?}", events);
+            }
+          }
           win_state.handle_platform_output(&window, &egui_ctx, full_output.platform_output);
           let paint_jobs = egui_ctx.tessellate(full_output.shapes);
           let texture_delta = full_output.textures_delta;
