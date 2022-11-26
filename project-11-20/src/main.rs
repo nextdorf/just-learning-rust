@@ -1,9 +1,7 @@
-
 use egui_winit::egui;
-use egui_winit::winit::dpi::PhysicalSize;
 use egui_winit::winit::event_loop::EventLoop;
 use egui_winit::winit::window::Window;
-use egui_winit::winit::{self, event_loop::ControlFlow, event::Event, event};
+use egui_winit::winit;
 use project_11_20::ui;
 use project_11_20::wgpustate::WgpuState;
 use project_11_20::util::VisualsColorMap;
@@ -39,11 +37,9 @@ fn main() {
   let event_loop = winit::event_loop::EventLoopBuilder::<ui::MyEvent>::with_user_event().build();
 
   let (window, mut win_state, egui_ctx) = setup_egui_winit(&event_loop);
-
-  let mut render_state = WgpuState::new(&window, 1.25).unwrap();
-  win_state.set_pixels_per_point(render_state.get_surface_scale());
-
   let mut ui_state = ui::UI::default();
+  let mut render_state = WgpuState::new(&window, ui::constants::ZOOM_100).unwrap();
+  win_state.set_pixels_per_point(ui::constants::ZOOM_100);
 
 
   event_loop.run(move |event, window_target, control_flow|
