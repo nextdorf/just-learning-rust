@@ -10,6 +10,7 @@ pub struct WgpuState {
   textures: HashMap<TextureId, (wgpu::Texture, wgpu::BindGroup)>,
 
   window_size_bind_group_layout: wgpu::BindGroupLayout,
+  window_size_bind_group: Option<wgpu::BindGroup>,
   surface_update_pipeline: wgpu::RenderPipeline,
   surface_update_binding_layout: wgpu::BindGroupLayout,
   surface_scale: f32,
@@ -83,7 +84,7 @@ impl WgpuState {
       textures: HashMap::default(),
 
       window_size_bind_group_layout,
-      // window_size_bind_group: None,
+      window_size_bind_group: None,
       surface_update_pipeline,
       surface_update_binding_layout,
       surface_scale,
@@ -93,6 +94,12 @@ impl WgpuState {
   fn create_window_size_bind_group(&self) -> wgpu::BindGroup {
     WindowSize::new(self.surface_config.width, self.surface_config.height, self.surface_scale)
       .get_bind_group(&self.device, &self.window_size_bind_group_layout)
+  }
+
+  pub fn update_window_size_bind_group(&mut self) {
+    if self.window_size_bind_group.is_none() {
+      self.window_size_bind_group = Some(self.create_window_size_bind_group())
+    }
   }
 
 
@@ -126,7 +133,6 @@ impl WgpuState {
       eprintln!("- {:?}", fmt);
     }
     eprintln!("");
-    // let surface_format = all_surface_formats[1];
     let surface_format = all_surface_formats[0];
     let surface_config = SurfaceConfiguration {
       usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -239,7 +245,6 @@ impl WgpuState {
   }
 
   fn new_surface_update_binding(&self, texture_id: &TextureId, texture: &wgpu::Texture, tex_filter: wgpu::FilterMode) -> wgpu::BindGroup {
-    // let tex_filter = wgpu::FilterMode::Linear;
     self.device.create_bind_group(
       &wgpu::BindGroupDescriptor {
         label: Some(format!("surface_texture_bind_group {:?}", texture_id).as_str()),
@@ -264,15 +269,12 @@ impl WgpuState {
     })
   }
 
-  pub fn redraw(&mut self, f: impl FnOnce() -> (TexturesDelta, Vec<ClippedPrimitive>)) -> Option<()> {
-    use egui_winit::egui::{self, epaint::Primitive};
-    let current_frame = self.surface.get_current_texture().ok()?;
-    let (texture_delta, paint_jobs) = f();
+  fn redraw_alloc_new_textures(&self, texture_delta_set: &Vec<(TextureId, epaint::ImageDelta)>) -> Vec<(TextureId, wgpu::Texture, wgpu::BindGroup)> {
+    use egui_winit::egui;
+    let font_gamma = 1.;
 
-
-    //Alloc new textures
-    let font_gamma = 1.0;
-    for (texture_id, img_delta) in texture_delta.set.iter() {
+    let mut res = Vec::with_capacity(texture_delta_set.len());
+    for (texture_id, img_delta) in texture_delta_set.iter() {
       if img_delta.pos.is_some() {
         eprintln!("Not sure where to place {:?}...", texture_id);
       }
@@ -286,8 +288,6 @@ impl WgpuState {
       pixel_data = match &img_delta.image {
         egui::ImageData::Color(img) => bytemuck::cast_slice(img.pixels.as_slice()),
         egui::ImageData::Font(img) => {
-          // pixel_data_store = img.srgba_pixels(font_gamma).flat_map(|p| p.to_srgba_unmultiplied()).collect();
-          // pixel_data_store = img.srgba_pixels(font_gamma).flat_map(|p| p.to_array()).collect();
           pixel_data_store = img.pixels.iter().flat_map(|gamma| {
             let val = (gamma.powf(font_gamma/2.2)*255.).round() as _;
             [val, val, val, val]
@@ -309,7 +309,6 @@ impl WgpuState {
           mip_level_count: 1,
           sample_count: 1,
           dimension: wgpu::TextureDimension::D2,
-          // format: self.surface_config.format,
           format: rgba8_to_surface_format,
           usage: wgpu::TextureUsages::TEXTURE_BINDING //COPY_DST is added automatically
         },
@@ -322,7 +321,32 @@ impl WgpuState {
       };
       let tex_binding = self.new_surface_update_binding(texture_id, &tex, tex_filter);
 
-      self.textures.insert(texture_id.clone(), (tex, tex_binding));
+      // self.textures.insert(texture_id.clone(), (tex, tex_binding));
+      res.push((texture_id.clone(), tex, tex_binding));
+    }
+
+    res
+
+  }
+
+  pub fn redraw(&mut self, f: impl FnOnce() -> (TexturesDelta, Vec<ClippedPrimitive>)) -> Option<()> {
+    use egui_winit::egui::{self, epaint::Primitive};
+    let current_frame = self.surface.get_current_texture().ok()?;
+    let (texture_delta, paint_jobs) = f();
+
+    let window_size_bind_group_store;
+    let window_size_bind_group = match self.window_size_bind_group.as_ref() {
+      Some(bind_group) => bind_group,
+      None => {
+          window_size_bind_group_store = self.create_window_size_bind_group();
+          &window_size_bind_group_store
+        }
+    };
+
+    //Alloc new textures
+    let new_textures = self.redraw_alloc_new_textures(&texture_delta.set);
+    for (id, tex, tex_binding) in new_textures {
+      self.textures.insert(id, (tex, tex_binding));
     }
 
     //Render deltas
@@ -332,7 +356,6 @@ impl WgpuState {
       &CommandEncoderDescriptor { label: Some("current_frame_redraw_encoder") });
     let mut vertex_buffers = Vec::with_capacity(paint_jobs.len());
     let mut vert_inds_buffers = Vec::with_capacity(paint_jobs.len());
-    let window_size_bind_group = self.create_window_size_bind_group();
 
     for ClippedPrimitive { clip_rect, primitive } in paint_jobs.iter() {
       let mut render_pass = encoder.begin_render_pass(
@@ -346,10 +369,10 @@ impl WgpuState {
           depth_stencil_attachment: None,
       });
 
-      let rect_diff = clip_rect.max - clip_rect.min;
+      let rect_diff = clip_rect.max - clip_rect.min; //TODO: scissors
       let mesh = match primitive {
         Primitive::Mesh(m) => m,
-        Primitive::Callback(_) => {eprintln!("Callback"); return None},
+        Primitive::Callback(_) => {eprintln!("Callback"); return None}, //TODO: not done yet
       };
       let (_texture, bind_group) = self.textures.get(&mesh.texture_id)?;
       

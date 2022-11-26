@@ -19,20 +19,6 @@ struct Vertex {                   // 32 bytes
   //No padding
 }
 
-// emath::rect::Rect
-// pub struct Rect {
-//   /// One of the corners of the rectangle, usually the left top one.
-//   pub min: Pos2,
-// 
-//   /// The other corner, opposing [`Self::min`]. Usually the right bottom one.
-//   pub max: Pos2,
-// }
-struct Rect {                   // 16 bytes
-  @location(0) min: vec2<f32>,  // 8 bytes
-  @location(1) max: vec2<f32>,  // 8 bytes
-  //No padding
-}
-
 // #[repr(C)]
 // #[derive(Clone, Copy, Debug, Default, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 // pub struct WindowSize {
@@ -67,16 +53,14 @@ var<uniform> window_size: WindowSize;
 @vertex
 fn main_vs(vert: Vertex) -> VertexOutput {
   var res: VertexOutput;
-  // res.pos = vec4((vert.pos - 0.5)*2./128., 0., 1.);
   let rescaled_size = vert.pos/vec2<f32>(window_size.size)*window_size.scale;
   res.pos = vec4(
-    // vert.pos.x/f32(window_size.size.x)*2. - 1.,
-    // 1. - vert.pos.y/f32(window_size.size.y)*2.,
     rescaled_size.x*2. - 1.,
     -rescaled_size.y*2. + 1.,
     0.,
     1.);
-  res.color = vec4<f32>(vert.color.rgb/vert.color.a, vert.color.a);
+  // res.color = vec4<f32>(vert.color.rgb/vert.color.a, vert.color.a);
+  res.color = vert.color;
   res.uv = vert.uv;
   // res.uv = vec2<i32>(round(vert.pos));
   return res;
