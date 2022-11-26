@@ -96,10 +96,14 @@ impl WgpuState {
       .get_bind_group(&self.device, &self.window_size_bind_group_layout)
   }
 
-  pub fn update_window_size_bind_group(&mut self) {
-    if self.window_size_bind_group.is_none() {
+  pub fn update_window_size_bind_group(&mut self, and_invalidate: bool) {
+    if and_invalidate || self.window_size_bind_group.is_none() {
       self.window_size_bind_group = Some(self.create_window_size_bind_group())
     }
+  }
+
+  pub fn invalidate_window_size_bind_group(&mut self) {
+    self.window_size_bind_group = None;
   }
 
 
@@ -417,10 +421,11 @@ impl WgpuState {
     Some(())
   }
 
-  pub fn resize(&mut self, width: Option<u32>, height: Option<u32>, scale: Option<f32>) {
+  pub fn resize(&mut self, width: Option<u32>, height: Option<u32>, scale: Option<f32>, win_state: &mut egui_winit::State) {
     if width.is_none() && height.is_none() && scale.is_none() {
       return;
     }
+    self.invalidate_window_size_bind_group();
 
     if let Some(w) = width {
       self.surface_config.width = w.max(1);
@@ -429,7 +434,9 @@ impl WgpuState {
       self.surface_config.height = h.max(1);
     }
     if let Some(s) = scale {
-      self.surface_scale = s.max(0.1);
+      let new_scale = s.max(0.1);
+      self.surface_scale = new_scale;
+      win_state.set_pixels_per_point(new_scale);
     }
 
     self.surface.configure(&self.device, &self.surface_config);
